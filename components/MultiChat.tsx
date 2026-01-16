@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StreamerConfig, Platform } from '../types';
 import { STREAMERS, TwitchIcon, YouTubeIcon, KickIcon, CUSTOM_MERGED_CHAT_URL } from '../constants';
@@ -11,14 +11,26 @@ interface MultiChatProps {
 
 const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose }) => {
   const [selectedStreamerId, setSelectedStreamerId] = useState<string>('all');
+  const [hostname, setHostname] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setHostname(window.location.hostname);
+    }
+  }, []);
 
   const getChatUrl = (streamer: StreamerConfig, platform: Platform) => {
-    // Lógica robusta de Parents para Twitch Chat
-    const allowedDomains = ['viictornmultistream.vercel.app', 'localhost'];
-    if (typeof window !== 'undefined' && window.location.hostname && !allowedDomains.includes(window.location.hostname)) {
-        allowedDomains.push(window.location.hostname);
-    }
-    const parentParams = allowedDomains.map(d => `parent=${d}`).join('&');
+    // Base allowed domains
+    const domains = new Set([
+        'localhost',
+        'viictornmultistream.vercel.app',
+        'www.viictornmultistream.vercel.app',
+        '127.0.0.1'
+    ]);
+    
+    if (hostname) domains.add(hostname);
+
+    const parentParams = Array.from(domains).map(d => `parent=${d}`).join('&');
 
     const channelId = streamer.channels[platform];
     if (!channelId) return 'about:blank';
@@ -170,6 +182,8 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
                            className="w-full h-full border-none block" 
                            title={`${streamer.name} Chat`}
                            loading="lazy"
+                           // Added sandbox for safety but permissive enough for chat
+                           sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
                          />
                        )}
                     </div>
@@ -202,7 +216,13 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
                         </div>
                     );
                  }
-                 return <iframe src={url} className="w-full h-full border-none" title="Chat" loading="lazy" />;
+                 return <iframe 
+                            src={url} 
+                            className="w-full h-full border-none" 
+                            title="Chat" 
+                            loading="lazy" 
+                            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
+                        />;
              })()}
            </div>
          )}

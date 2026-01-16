@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StreamerConfig, Platform } from '../types';
 import PlatformSelector from './PlatformSelector';
@@ -11,6 +11,14 @@ interface StreamSlotProps {
 
 const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPlatformChange }) => {
   const [showControls, setShowControls] = useState(false);
+  const [hostname, setHostname] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setHostname(window.location.hostname);
+    }
+  }, []);
+
   const channelId = streamer.channels[currentPlatform];
 
   const handlePlatformSelect = (p: Platform) => {
@@ -19,37 +27,36 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
   };
 
   const getEmbedUrl = () => {
-    // 1. Defina os domínios permitidos explicitamente
-    // Adicione variações comuns para garantir compatibilidade
-    const allowedDomains = [
-        'viictornmultistream.vercel.app', 
-        'www.viictornmultistream.vercel.app',
-        'localhost', 
-        '127.0.0.1'
-    ];
-    
-    // Adiciona o hostname atual dinamicamente se não estiver na lista
-    if (typeof window !== 'undefined' && window.location.hostname) {
-        if (!allowedDomains.includes(window.location.hostname)) {
-            allowedDomains.push(window.location.hostname);
-        }
-    }
-
     if (!channelId) return '';
+
+    // Base allowed domains
+    const domains = new Set([
+      'localhost',
+      'viictornmultistream.vercel.app',
+      'www.viictornmultistream.vercel.app',
+      '127.0.0.1'
+    ]);
+    
+    // Add current hostname if valid
+    if (hostname) {
+      domains.add(hostname);
+    }
 
     switch (currentPlatform) {
       case Platform.Twitch:
-        // Twitch requer que todos os pais sejam listados
-        const parentParams = allowedDomains.map(d => `parent=${d}`).join('&');
-        return `https://player.twitch.tv/?channel=${channelId}&${parentParams}&muted=false&autoplay=true`;
+        const parentParams = Array.from(domains).map(d => `parent=${d}`).join('&');
+        // CRITICAL: muted=true is required for autoplay to work in most modern browsers (Chrome/Edge) without user interaction first.
+        return `https://player.twitch.tv/?channel=${channelId}&${parentParams}&muted=true&autoplay=true`;
         
       case Platform.YouTube:
-        // YouTube embed
-        return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=0`; 
+        // YouTube requires 'live_stream' embed type for channel IDs
+        // mute=1 is required for autoplay
+        return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1`; 
 
       case Platform.Kick:
-        // Kick embed
-        return `https://player.kick.com/${channelId}?autoplay=true&muted=false`;
+        // Kick simple player
+        // muted=true is essential for iframe autoplay
+        return `https://player.kick.com/${channelId}?autoplay=true&muted=true`;
         
       default:
         return '';
@@ -62,18 +69,18 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
     <div className="relative w-full h-full bg-black overflow-hidden group">
       
       {/* 1. VIDEO LAYER */}
-      <div className="absolute inset-0 z-0 flex bg-black">
+      <div className="absolute inset-0 z-0 bg-black">
          {channelId ? (
             <iframe
               src={getEmbedUrl()}
               title={`${streamer.name} - ${currentPlatform}`}
               className="w-full h-full border-none"
-              // REMOVIDO: Sandbox attribute. 
-              // A presença do sandbox (mesmo com allow-scripts) frequentemente quebra 
-              // a inicialização de players complexos como Twitch e Kick.
-              // Ao remover, permitimos que o iframe funcione como um embed padrão.
-              
-              referrerPolicy="origin" 
+              // Sandbox: Explicitly allow everything needed for complex players.
+              // removing sandbox entirely can sometimes trigger security headers on the host (vercel).
+              // 'allow-storage-access-by-user-activation' is helpful for Twitch/Kick cookies.
+              sandbox="allow-modals allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-storage-access-by-user-activation allow-presentation allow-forms"
+              referrerPolicy="strict-origin-when-cross-origin"
+              loading="eager"
               allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             />
@@ -87,7 +94,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
 
       {/* 2. HUD ELEMENTS */}
       
-      {/* Platform Badge */}
+      {/* Platform Badge - Non-interactive background, text is fine */}
       <div className="absolute top-4 left-4 z-10 pointer-events-none">
         <div className={`
           pointer-events-auto
@@ -110,7 +117,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
         className={`
             absolute top-4 right-4 z-10
             w-8 h-8 flex items-center justify-center rounded-full
-            transition-all duration-200 cursor-pointer
+            transition-all duration-200 cursor-pointer pointer-events-auto
             ${showControls 
                 ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.3)]' 
                 : 'bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
