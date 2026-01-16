@@ -182,8 +182,7 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
                            className="w-full h-full border-none block" 
                            title={`${streamer.name} Chat`}
                            loading="lazy"
-                           // Added sandbox for safety but permissive enough for chat
-                           sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
+                           // Removed sandbox
                          />
                        )}
                     </div>
@@ -221,7 +220,6 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
                             className="w-full h-full border-none" 
                             title="Chat" 
                             loading="lazy" 
-                            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
                         />;
              })()}
            </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StreamerConfig, Platform } from '../types';
 import PlatformSelector from './PlatformSelector';
@@ -26,7 +26,8 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
     setShowControls(false);
   };
 
-  const getEmbedUrl = () => {
+  // Memoize the URL to prevent iframe reloading on minor parent re-renders
+  const embedUrl = useMemo(() => {
     if (!channelId) return '';
 
     // Base allowed domains
@@ -45,23 +46,22 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
     switch (currentPlatform) {
       case Platform.Twitch:
         const parentParams = Array.from(domains).map(d => `parent=${d}`).join('&');
-        // CRITICAL: muted=true is required for autoplay to work in most modern browsers (Chrome/Edge) without user interaction first.
+        // muted=true is safer for autoplay. 
+        // We use autoplay=true so it starts buffering immediately.
         return `https://player.twitch.tv/?channel=${channelId}&${parentParams}&muted=true&autoplay=true`;
         
       case Platform.YouTube:
         // YouTube requires 'live_stream' embed type for channel IDs
-        // mute=1 is required for autoplay
         return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1`; 
 
       case Platform.Kick:
         // Kick simple player
-        // muted=true is essential for iframe autoplay
         return `https://player.kick.com/${channelId}?autoplay=true&muted=true`;
         
       default:
         return '';
     }
-  };
+  }, [channelId, currentPlatform, hostname]);
 
   const availablePlatforms = Object.keys(streamer.channels).map(k => k as Platform);
 
@@ -72,15 +72,12 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
       <div className="absolute inset-0 z-0 bg-black">
          {channelId ? (
             <iframe
-              src={getEmbedUrl()}
+              src={embedUrl}
               title={`${streamer.name} - ${currentPlatform}`}
-              className="w-full h-full border-none"
-              // Sandbox: Explicitly allow everything needed for complex players.
-              // removing sandbox entirely can sometimes trigger security headers on the host (vercel).
-              // 'allow-storage-access-by-user-activation' is helpful for Twitch/Kick cookies.
-              sandbox="allow-modals allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-storage-access-by-user-activation allow-presentation allow-forms"
-              referrerPolicy="strict-origin-when-cross-origin"
-              loading="eager"
+              className="w-full h-full border-none pointer-events-auto"
+              // REMOVED SANDBOX: Essential for Desktop interaction (Click to Play).
+              // Twitch and Kick scripts often fail silently inside any sandbox environment on PC browsers.
+              referrerPolicy="origin"
               allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             />
