@@ -46,7 +46,7 @@ export const STREAMERS: StreamerConfig[] = [
     defaultPlatform: Platform.Twitch,
     color: '#9146FF', // Twitch purple
     channels: {
-      [Platform.Twitch]: 'gabepeixe', // Corrigido
+      [Platform.Twitch]: 'gabepeixe', 
       [Platform.Kick]: 'gabepeixe',
       [Platform.YouTube]: 'gabepeixe',
     },
@@ -59,7 +59,7 @@ export const STREAMERS: StreamerConfig[] = [
     color: '#FF0000', // YouTube red dominant
     channels: {
       [Platform.Twitch]: 'loud_coringa',
-      [Platform.YouTube]: 'LOUD Coringa',
+      [Platform.YouTube]: 'UChc6C0847V_X9N9vJtW7W8w', // ID DO CANAL Real (Necessário para embed de live)
       [Platform.Kick]: 'coringa',
     },
   },
