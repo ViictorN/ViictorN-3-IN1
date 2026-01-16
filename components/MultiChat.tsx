@@ -13,14 +13,19 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
   const [selectedStreamerId, setSelectedStreamerId] = useState<string>('all');
 
   const getChatUrl = (streamer: StreamerConfig, platform: Platform) => {
-    const parent = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    // Lógica robusta de Parents para Twitch Chat
+    const allowedDomains = ['viictornmultistream.vercel.app', 'localhost'];
+    if (typeof window !== 'undefined' && window.location.hostname && !allowedDomains.includes(window.location.hostname)) {
+        allowedDomains.push(window.location.hostname);
+    }
+    const parentParams = allowedDomains.map(d => `parent=${d}`).join('&');
+
     const channelId = streamer.channels[platform];
-    
     if (!channelId) return 'about:blank';
 
     switch (platform) {
       case Platform.Twitch:
-        return `https://www.twitch.tv/embed/${channelId}/chat?parent=${parent}&darkpopout`;
+        return `https://www.twitch.tv/embed/${channelId}/chat?${parentParams}&darkpopout`;
       case Platform.YouTube:
         return ''; 
       case Platform.Kick:
