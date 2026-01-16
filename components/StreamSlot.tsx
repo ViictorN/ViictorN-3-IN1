@@ -28,7 +28,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
         return `https://player.twitch.tv/?channel=${channelId}&parent=${parent}&muted=false`;
       case Platform.YouTube:
         // Note: For YouTube Live, channelId MUST be the Channel ID (starting with UC), not a handle (@).
-        return `https://www.youtube.com/embed/live_stream?channel=${channelId}`; 
+        return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1`; 
       case Platform.Kick:
         return `https://player.kick.com/${channelId}`;
       default:
@@ -39,11 +39,28 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
   const availablePlatforms = Object.keys(streamer.channels).map(k => k as Platform);
 
   return (
-    <div 
-      className="relative w-full h-full bg-neutral-900 overflow-hidden group border-r border-b border-white/5 last:border-r-0 last:border-b-0"
-      onMouseLeave={() => setShowControls(false)}
-    >
-      {/* Platform Indicator Label (Top Left) */}
+    <div className="relative w-full h-full bg-black overflow-hidden">
+      
+      {/* 1. VIDEO LAYER (Bottom) - Absolute Inset 0 to guarantee fill and clickability */}
+      <div className="absolute inset-0 z-0">
+         {channelId ? (
+            <iframe
+              src={getEmbedUrl()}
+              title={`${streamer.name} - ${currentPlatform}`}
+              className="w-full h-full border-none"
+              allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            />
+         ) : (
+           <div className="flex flex-col items-center justify-center w-full h-full text-white/10 select-none">
+             <span className="text-4xl font-black uppercase tracking-widest">{streamer.name}</span>
+             <span className="text-sm font-medium tracking-wider mt-2">Offline</span>
+           </div>
+         )}
+      </div>
+
+      {/* 2. HUD LAYER (Middle) - Indicators & Toggle Button */}
+      {/* Platform Label - Click-through */}
       <div className="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none">
         <div className={`
           px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded shadow-lg backdrop-blur-md border border-white/5
@@ -55,64 +72,50 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
         </div>
       </div>
 
-      {/* Manual Settings Toggle (Top Right) - Essential for interaction control */}
+      {/* Settings Toggle - Interactive */}
       <button
         onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             setShowControls(prev => !prev);
         }}
         className={`
-            absolute top-4 right-4 z-40 w-8 h-8 flex items-center justify-center rounded-full
-            bg-black/40 backdrop-blur border border-white/10 text-white/70 
-            hover:bg-white/10 hover:text-white transition-all
-            ${showControls ? 'opacity-100 bg-white/20 text-white' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'}
+            absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center rounded-full
+            transition-all duration-200 cursor-pointer
+            ${showControls 
+                ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.3)]' 
+                : 'bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+            }
         `}
-        title="Trocar Plataforma"
+        title="Configurações da Stream"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M12 2v2"/><path d="M12 22v-2"/><path d="m17 20.66-1-1.73"/><path d="M11 10.27 7 3.34"/><path d="m20.66 17-1.73-1"/><path d="m3.34 7 1.73 1"/><path d="M14 12h8"/><path d="M2 12h2"/><path d="m20.66 7-1.73 1"/><path d="m3.34 17 1.73-1"/><path d="m17 3.34-1 1.73"/><path d="m11 13.73-4 6.93"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>
 
-      {/* Video Player Container */}
-      <div className="w-full h-full bg-black relative">
-         {channelId ? (
-            <iframe
-              src={getEmbedUrl()}
-              title={`${streamer.name} - ${currentPlatform}`}
-              className="w-full h-full pointer-events-auto"
-              allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            />
-         ) : (
-           <div className="absolute inset-0 flex flex-col items-center justify-center text-white/10 pointer-events-none">
-             <span className="text-4xl font-black uppercase tracking-widest">{streamer.name}</span>
-             <span className="text-sm font-medium tracking-wider mt-2">Offline</span>
-           </div>
-         )}
-      </div>
-
-      {/* Cinematic Controls Overlay */}
+      {/* 3. OVERLAY LAYER (Top) - Controls Interface */}
       <AnimatePresence>
         {showControls && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.2 }}
             className="absolute inset-0 z-30 flex flex-col justify-end pointer-events-none"
           >
-             {/* Gradient Background - CRITICAL: Must be pointer-events-none to allow clicking through to video if needed, though usually overlay covers it. */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none" />
+             {/* Gradient Background - Invisible to clicks */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent pointer-events-none" />
 
-            {/* Content Container */}
-            <div className="relative p-6 flex flex-col items-center justify-end h-full">
+            {/* Interactive Content */}
+            <div className="relative p-6 flex flex-col items-center justify-end h-full z-40">
               <motion.h2 
                 initial={{ y: 10, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="text-2xl font-black uppercase tracking-tighter text-white mb-6 drop-shadow-2xl pointer-events-none"
+                className="text-2xl font-black uppercase tracking-tighter text-white mb-6 drop-shadow-2xl pointer-events-none select-none"
               >
                 {streamer.name}
               </motion.h2>
 
+              {/* Selector needs pointer-events-auto */}
               <div className="pointer-events-auto">
                 <PlatformSelector 
                   isOpen={true}
