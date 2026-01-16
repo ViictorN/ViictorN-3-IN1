@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { StreamerConfig, Platform } from '../types';
 import { STREAMERS, TwitchIcon, YouTubeIcon, KickIcon, CUSTOM_MERGED_CHAT_URL } from '../constants';
 
@@ -47,25 +47,34 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-      className="fixed inset-y-0 right-0 w-full md:w-[420px] bg-[#090909] border-l border-white/5 z-50 flex flex-col shadow-2xl"
+      className="fixed inset-y-0 right-0 w-full md:w-[420px] bg-black/90 backdrop-blur-2xl border-l border-white/5 z-50 flex flex-col shadow-2xl"
     >
-      {/* Navigation Tabs - Compact & Dark */}
-      <div className="flex flex-none items-stretch h-10 bg-black/60 border-b border-white/5 overflow-x-auto no-scrollbar backdrop-blur-md">
-        {/* MIX TAB (ALL IN ONE) */}
+      {/* Navigation Tabs - Glass, Rounded, Gradient */}
+      <div className="flex flex-none items-end h-14 bg-gradient-to-b from-black/80 to-black/40 border-b border-white/5 px-2 gap-1 overflow-x-auto no-scrollbar">
+        
+        {/* MIX TAB */}
         <button
            onClick={() => setSelectedStreamerId('all')}
            className={`
-             relative px-4 flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-widest transition-all duration-300 min-w-[70px]
-             ${selectedStreamerId === 'all' ? 'text-white' : 'text-neutral-600 hover:text-neutral-400'}
+             relative group flex flex-col items-center justify-center px-4 h-10 min-w-[70px] rounded-t-lg transition-all duration-300
+             ${selectedStreamerId === 'all' ? 'bg-white/5 text-white' : 'text-neutral-500 hover:bg-white/5 hover:text-neutral-300'}
            `}
         >
-          <span>MIX</span>
+          <span className="text-[10px] font-black uppercase tracking-widest z-10">MIX</span>
+          
           {selectedStreamerId === 'all' && (
-             <motion.div layoutId="activeTabIndicator" className="absolute bottom-0 left-0 right-0 h-[2px] bg-white" />
+             <motion.div 
+                layoutId="activeTabGlow"
+                className="absolute bottom-0 left-0 right-0 h-[2px]"
+                style={{
+                    background: 'linear-gradient(90deg, transparent 0%, #ffffff 50%, transparent 100%)',
+                    boxShadow: '0 -2px 8px rgba(255, 255, 255, 0.5)'
+                }}
+             />
            )}
         </button>
 
-        <div className="w-[1px] h-4 self-center bg-white/10 mx-1" />
+        <div className="w-[1px] h-4 mb-3 bg-white/10 mx-1 self-end" />
 
         {/* INDIVIDUAL TABS */}
         {STREAMERS.map((streamer) => {
@@ -77,33 +86,40 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
                key={streamer.id}
                onClick={() => setSelectedStreamerId(streamer.id)}
                className={`
-                 relative flex-1 flex items-center justify-center gap-2
-                 transition-all duration-300
-                 ${isActive ? 'text-white' : 'text-neutral-600 hover:text-neutral-400'}
+                 relative group flex-1 flex items-center justify-center gap-2 h-10 rounded-t-lg transition-all duration-300 min-w-[90px]
+                 ${isActive ? 'bg-white/5 text-white' : 'text-neutral-500 hover:bg-white/5 hover:text-neutral-300'}
                `}
              >
-               <span className="text-[9px] font-bold uppercase truncate">
+               <span className="text-[9px] font-bold uppercase truncate z-10">
                  {streamer.name}
                </span>
-               <div className={`transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-30'}`}>
+               <div className={`transition-opacity duration-300 z-10 ${isActive ? 'opacity-100' : 'opacity-40 group-hover:opacity-80'}`}>
                  <ChatIcon platform={streamerPlatform} />
                </div>
                
                {isActive && (
                  <motion.div 
-                   layoutId="activeTabIndicator"
-                   className="absolute bottom-0 left-0 right-0 h-[2px]"
-                   style={{ backgroundColor: streamer.color }}
+                   layoutId="activeTabGlow"
+                   className="absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full"
+                   style={{ 
+                       background: `linear-gradient(90deg, transparent 0%, ${streamer.color} 50%, transparent 100%)`,
+                       boxShadow: `0 -4px 12px ${streamer.color}66` // Hex transparency for glow
+                   }}
                  />
+               )}
+               
+               {/* Background subtle gradient for active state */}
+               {isActive && (
+                   <div className="absolute inset-0 bg-gradient-to-t from-white/5 to-transparent rounded-t-lg opacity-50" />
                )}
              </button>
            );
         })}
         
-        {/* Close */}
+        {/* Close Button - Integrated */}
         <button 
             onClick={onClose}
-            className="flex-none w-10 flex items-center justify-center text-neutral-600 hover:text-white transition-colors ml-auto"
+            className="flex-none w-8 h-8 mb-1 flex items-center justify-center rounded-full text-neutral-500 hover:text-white hover:bg-white/10 transition-colors ml-auto"
         >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 18 18"/></svg>
         </button>
@@ -112,10 +128,9 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
       {/* Chat Container */}
       <div className="flex-1 relative bg-black flex flex-col overflow-hidden">
          {selectedStreamerId === 'all' ? (
-           // MIX VIEW: Seamless Vertical Stack OR Custom External Widget
+           // MIX VIEW
            <div className="flex flex-col h-full w-full">
              {CUSTOM_MERGED_CHAT_URL ? (
-                // External Aggregator Mode (BotRix, SocialStream, etc)
                 <iframe 
                    src={CUSTOM_MERGED_CHAT_URL} 
                    className="w-full h-full border-none" 
@@ -123,7 +138,6 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
                    loading="lazy"
                 />
              ) : (
-                // Seamless Stack Mode (Fallback)
                 STREAMERS.map((streamer, idx) => {
                   const platform = activeStreamers[streamer.id] || Platform.Twitch;
                   const url = getChatUrl(streamer, platform);

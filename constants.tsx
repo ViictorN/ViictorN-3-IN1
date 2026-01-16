@@ -46,9 +46,9 @@ export const STREAMERS: StreamerConfig[] = [
     defaultPlatform: Platform.Twitch,
     color: '#9146FF', // Twitch purple
     channels: {
-      [Platform.Twitch]: 'gaules', // Using Gaules for demo purposes as requested
+      [Platform.Twitch]: 'gabepeixe', // Corrigido
       [Platform.Kick]: 'gabepeixe',
-      [Platform.YouTube]: 'Gabepeixe',
+      [Platform.YouTube]: 'gabepeixe',
     },
   },
   {
