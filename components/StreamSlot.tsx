@@ -20,10 +20,15 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
 
   const getEmbedUrl = () => {
     // 1. Defina os domínios permitidos explicitamente
-    // Isso garante que funcione no Vercel E no Localhost sem erros de "Refused to connect"
-    const allowedDomains = ['viictornmultistream.vercel.app', 'localhost'];
+    // Adicione variações comuns para garantir compatibilidade
+    const allowedDomains = [
+        'viictornmultistream.vercel.app', 
+        'www.viictornmultistream.vercel.app',
+        'localhost', 
+        '127.0.0.1'
+    ];
     
-    // Adiciona o hostname atual dinamicamente se não estiver na lista (ex: deploy de preview)
+    // Adiciona o hostname atual dinamicamente se não estiver na lista
     if (typeof window !== 'undefined' && window.location.hostname) {
         if (!allowedDomains.includes(window.location.hostname)) {
             allowedDomains.push(window.location.hostname);
@@ -34,16 +39,17 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
 
     switch (currentPlatform) {
       case Platform.Twitch:
-        // Gera string: &parent=viictornmultistream.vercel.app&parent=localhost...
+        // Twitch requer que todos os pais sejam listados
         const parentParams = allowedDomains.map(d => `parent=${d}`).join('&');
-        return `https://player.twitch.tv/?channel=${channelId}&${parentParams}&muted=true&autoplay=true`;
+        return `https://player.twitch.tv/?channel=${channelId}&${parentParams}&muted=false&autoplay=true`;
         
       case Platform.YouTube:
-        return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1`; 
+        // YouTube embed
+        return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=0`; 
 
       case Platform.Kick:
-        // Kick requer muted=true para autoplay funcionar em iframes na maioria dos browsers
-        return `https://player.kick.com/${channelId}?autoplay=true&muted=true`;
+        // Kick embed
+        return `https://player.kick.com/${channelId}?autoplay=true&muted=false`;
         
       default:
         return '';
@@ -56,18 +62,19 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
     <div className="relative w-full h-full bg-black overflow-hidden group">
       
       {/* 1. VIDEO LAYER */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 flex bg-black">
          {channelId ? (
             <iframe
               src={getEmbedUrl()}
               title={`${streamer.name} - ${currentPlatform}`}
               className="w-full h-full border-none"
-              // Permissões Críticas para Kick e Twitch
+              // REMOVIDO: Sandbox attribute. 
+              // A presença do sandbox (mesmo com allow-scripts) frequentemente quebra 
+              // a inicialização de players complexos como Twitch e Kick.
+              // Ao remover, permitimos que o iframe funcione como um embed padrão.
+              
               referrerPolicy="origin" 
-              loading="eager"
               allowFullScreen
-              // Sandbox permissivo para garantir que scripts de proteção da Kick funcionem
-              sandbox="allow-modals allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             />
          ) : (
