@@ -15,16 +15,22 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
 
   const getChatUrl = (streamer: StreamerConfig, platform: Platform) => {
-    // Parent Logic matching StreamSlot
+    // Robust Parent Logic for Chat
     const parents = new Set<string>();
     
+    parents.add('viictornmultistream.vercel.app');
+    parents.add('www.viictornmultistream.vercel.app');
+
     if (hostname) {
         parents.add(hostname);
-        if (hostname.startsWith('www.')) parents.add(hostname.replace('www.', ''));
+        if (hostname.startsWith('www.')) {
+            parents.add(hostname.replace('www.', ''));
+        } else {
+            parents.add(`www.${hostname}`);
+        }
     }
     parents.add('localhost');
     parents.add('127.0.0.1');
-    parents.add('viictornmultistream.vercel.app');
 
     const parentParams = Array.from(parents).map(d => `parent=${d}`).join('&');
     const channelId = streamer.channels[platform];
@@ -34,7 +40,6 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
       case Platform.Twitch:
         return `https://www.twitch.tv/embed/${channelId}/chat?${parentParams}&darkpopout`;
       case Platform.YouTube:
-        // YouTube embedding chat is restricted.
         return ''; 
       case Platform.Kick:
         return `https://kick.com/${channelId}/chatroom`;

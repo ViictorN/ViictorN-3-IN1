@@ -13,16 +13,10 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
   const [showControls, setShowControls] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0); 
   const [isLoading, setIsLoading] = useState(true);
-  const [isFileProtocol, setIsFileProtocol] = useState(false);
+  const [debugMsg, setDebugMsg] = useState('');
 
   // Robust Hostname Detection
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
-      setIsFileProtocol(true);
-    }
-  }, []);
 
   // Safety Timeout
   useEffect(() => {
@@ -33,7 +27,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
 
   const rawChannelId = streamer.channels[currentPlatform];
   const channelId = rawChannelId ? rawChannelId.trim() : '';
-  const hasValidChannel = Boolean(channelId && channelId.length > 0 && !channelId.includes('Inserir'));
+  const hasValidChannel = Boolean(channelId && channelId.length > 0);
 
   const handleReload = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -47,29 +41,35 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
     // --- TWITCH PARENT LOGIC ---
     const parents = new Set<string>();
     
-    // 1. Current Hostname (Crucial for Vercel/Localhost)
+    // 1. Hardcoded Vercel Domain (Primary)
+    parents.add('viictornmultistream.vercel.app');
+    parents.add('www.viictornmultistream.vercel.app');
+
+    // 2. Current Hostname (Dynamic)
     if (hostname) {
         parents.add(hostname);
-        // Sometimes removing 'www' helps match the Twitch allowed list
+        // Ensure both www and non-www are present to catch redirects
         if (hostname.startsWith('www.')) {
             parents.add(hostname.replace('www.', ''));
+        } else {
+            parents.add(`www.${hostname}`);
         }
     }
-
-    // 2. Fallbacks
-    parents.add('localhost'); 
+    
+    // 3. Localhost Fallbacks
+    parents.add('localhost');
     parents.add('127.0.0.1');
-    parents.add('viictornmultistream.vercel.app');
 
     const parentQuery = Array.from(parents).map(p => `parent=${p}`).join('&');
 
     switch (currentPlatform) {
       case Platform.Twitch:
+        // Using "player.twitch.tv" is correct for interactive frames.
         return `https://player.twitch.tv/?channel=${channelId.toLowerCase()}&${parentQuery}&muted=true&autoplay=true`;
         
       case Platform.YouTube:
-        // Standard Live Stream Embed
-        return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1&playsinline=1`; 
+        // YouTube Embed: Removing 'origin' to prevent mismatch errors on Vercel subdomains
+        return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1&playsinline=1&enablejsapi=1`; 
         
       case Platform.Kick:
         return `https://player.kick.com/${channelId}?autoplay=true&muted=true`;
@@ -94,25 +94,19 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
       
       {/* 1. IFRAME CONTAINER */}
       <div className="absolute inset-0 z-0 bg-black">
-         {isFileProtocol ? (
-             <div className="flex flex-col items-center justify-center w-full h-full p-6 text-center text-red-400">
-                <span className="font-bold uppercase tracking-widest mb-2">Erro de Protocolo</span>
-                <p className="text-xs text-white/50 max-w-[250px]">
-                    Players não funcionam diretamente do arquivo (file://).<br/>
-                    Use um servidor local ou faça deploy.
-                </p>
-             </div>
-         ) : hasValidChannel && embedUrl ? (
+         {hasValidChannel && embedUrl ? (
             <>
                 <iframe
                     key={`${currentPlatform}-${refreshKey}`} 
                     src={embedUrl}
                     title={`${streamer.name} - ${currentPlatform}`}
-                    className="w-full h-full border-none"
+                    className="w-full h-full border-none bg-black"
                     onLoad={() => setIsLoading(false)}
                     allowFullScreen
-                    // NO SANDBOX ATTRIBUTE - Critical for compatibility
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                    // CRITICAL: Explicitly permissive sandbox + standard allows
+                    sandbox="allow-modals allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation allow-forms allow-storage-access-by-user-activation"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; speaker; microphone"
+                    referrerPolicy="no-referrer-when-downgrade"
                 />
 
                 {/* Loading Spinner Overlay */}
