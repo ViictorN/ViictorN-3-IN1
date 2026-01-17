@@ -60,14 +60,15 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
 
     switch (currentPlatform) {
       case Platform.Twitch:
-        return `https://player.twitch.tv/?channel=${channelId}&${twitchParentParams}&muted=false&autoplay=true`;
+        // Force muted=true to ensure autoplay works in most browsers
+        return `https://player.twitch.tv/?channel=${channelId}&${twitchParentParams}&muted=true&autoplay=true`;
         
       case Platform.YouTube:
-        // mute=0 for sound (user has to click anyway), autoplay=1
-        return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=0&controls=1&playsinline=1&origin=${origin}`; 
+        // mute=1 is required for autoplay in Chrome/Edge usually
+        return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1&controls=1&playsinline=1&origin=${origin}`; 
         
       case Platform.Kick:
-        return `https://player.kick.com/${channelId}?autoplay=true&muted=false`;
+        return `https://player.kick.com/${channelId}?autoplay=true&muted=true`;
         
       default:
         return '';
@@ -77,18 +78,21 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
   return (
     <div className="relative w-full h-full bg-black overflow-hidden group">
       
-      {/* 1. VIDEO LAYER (z-0) */}
-      <div className="absolute inset-0 z-0">
+      {/* 1. VIDEO LAYER (z-1) - Explicitly set low Z-index but positive */}
+      <div className="absolute inset-0 z-[1]">
          {channelId ? (
             <iframe
               key={`${currentPlatform}-${refreshKey}`} 
               src={embedUrl}
               title={`${streamer.name} - ${currentPlatform}`}
+              width="100%"
+              height="100%"
               className="w-full h-full border-none block pointer-events-auto"
               style={{ pointerEvents: 'auto' }} 
               referrerPolicy="strict-origin-when-cross-origin" 
               allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; interactive-widget"
+              sandbox="allow-modals allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"
             />
          ) : (
            <div className="flex flex-col items-center justify-center w-full h-full text-white/10 select-none">
@@ -98,10 +102,10 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
          )}
       </div>
 
-      {/* 2. HUD - BADGE (Top Left) - Independent Absolute Element */}
-      <div className="absolute top-4 left-4 z-10">
+      {/* 2. HUD - BADGE (Top Left) - Wrapped in pointer-events-none to prevent invisible blocking */}
+      <div className="absolute top-4 left-4 z-[20] pointer-events-none">
         <div className={`
-          cursor-default select-none pointer-events-auto
+          pointer-events-auto cursor-default select-none
           px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded shadow-lg backdrop-blur-md border border-white/5
           ${currentPlatform === Platform.Twitch ? 'bg-twitch text-white' : ''}
           ${currentPlatform === Platform.YouTube ? 'bg-youtube text-white' : ''}
@@ -111,12 +115,12 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
         </div>
       </div>
 
-      {/* 3. HUD - CONTROLS (Top Right) - Independent Absolute Element */}
-      <div className="absolute top-4 right-4 z-10 flex gap-2 pointer-events-auto">
+      {/* 3. HUD - CONTROLS (Top Right) - Wrapped in pointer-events-none */}
+      <div className="absolute top-4 right-4 z-[20] flex gap-2 pointer-events-none">
             {/* Reload Button */}
             <button
                 onClick={handleReload}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                className="pointer-events-auto w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
                 title="Recarregar Player"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
@@ -129,7 +133,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
                     setShowControls(prev => !prev);
                 }}
                 className={`
-                    w-8 h-8 flex items-center justify-center rounded-full
+                    pointer-events-auto w-8 h-8 flex items-center justify-center rounded-full
                     transition-all duration-200 cursor-pointer
                     ${showControls 
                         ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.3)]' 
@@ -146,7 +150,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
             </button>
       </div>
 
-      {/* 4. SETTINGS OVERLAY (z-20) */}
+      {/* 4. SETTINGS OVERLAY (z-30) */}
       <AnimatePresence>
         {showControls && (
           <motion.div 
@@ -154,7 +158,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 z-20 flex flex-col justify-end"
+            className="absolute inset-0 z-[30] flex flex-col justify-end"
           >
              {/* Gradient Background - Click to dismiss */}
             <div 
@@ -164,7 +168,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
 
             {/* Interactive Content */}
             <div 
-                className="relative p-6 flex flex-col items-center justify-end h-full z-30 pointer-events-none"
+                className="relative p-6 flex flex-col items-center justify-end h-full pointer-events-none"
             >
               <motion.h2 
                 initial={{ y: 10, opacity: 0 }}
