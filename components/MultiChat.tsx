@@ -12,27 +12,21 @@ interface MultiChatProps {
 const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose }) => {
   const [selectedStreamerId, setSelectedStreamerId] = useState<string>('all');
   
-  // Lazy init hostname
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
 
   const getChatUrl = (streamer: StreamerConfig, platform: Platform) => {
-    // Robust Parent Logic matching StreamSlot
-    const domains = new Set<string>();
-    domains.add('viictornmultistream.vercel.app');
-    domains.add('localhost');
-    domains.add('127.0.0.1');
+    // Parent Logic matching StreamSlot
+    const parents = new Set<string>();
     
     if (hostname) {
-        domains.add(hostname);
-        if (hostname.startsWith('www.')) {
-             domains.add(hostname.replace('www.', ''));
-        } else {
-             domains.add(`www.${hostname}`);
-        }
+        parents.add(hostname);
+        if (hostname.startsWith('www.')) parents.add(hostname.replace('www.', ''));
     }
+    parents.add('localhost');
+    parents.add('127.0.0.1');
+    parents.add('viictornmultistream.vercel.app');
 
-    const parentParams = Array.from(domains).map(d => `parent=${d}`).join('&');
-
+    const parentParams = Array.from(parents).map(d => `parent=${d}`).join('&');
     const channelId = streamer.channels[platform];
     if (!channelId) return 'about:blank';
 
@@ -40,8 +34,7 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
       case Platform.Twitch:
         return `https://www.twitch.tv/embed/${channelId}/chat?${parentParams}&darkpopout`;
       case Platform.YouTube:
-        // YouTube Chat Embedding is restricted by YouTube. 
-        // Returning empty triggers the fallback UI.
+        // YouTube embedding chat is restricted.
         return ''; 
       case Platform.Kick:
         return `https://kick.com/${channelId}/chatroom`;
@@ -63,129 +56,67 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
 
   return (
     <motion.div 
-      initial={{ x: '100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '100%' }}
+      initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 30, stiffness: 300 }}
       className="fixed inset-y-0 right-0 w-full md:w-[420px] bg-black/90 backdrop-blur-2xl border-l border-white/5 z-50 flex flex-col shadow-2xl"
     >
-      {/* Navigation Tabs */}
       <div className="flex flex-none items-end h-14 bg-gradient-to-b from-black/80 to-black/40 border-b border-white/5 px-2 gap-1 overflow-x-auto no-scrollbar">
-        
-        {/* MIX TAB */}
         <button
            onClick={() => setSelectedStreamerId('all')}
-           className={`
-             relative group flex flex-col items-center justify-center px-4 h-10 min-w-[70px] rounded-t-lg transition-all duration-300
-             ${selectedStreamerId === 'all' ? 'bg-white/5 text-white' : 'text-neutral-500 hover:bg-white/5 hover:text-neutral-300'}
-           `}
+           className={`relative group flex flex-col items-center justify-center px-4 h-10 min-w-[70px] rounded-t-lg transition-all duration-300 ${selectedStreamerId === 'all' ? 'bg-white/5 text-white' : 'text-neutral-500 hover:bg-white/5 hover:text-neutral-300'}`}
         >
           <span className="text-[10px] font-black uppercase tracking-widest z-10">MIX</span>
-          
           {selectedStreamerId === 'all' && (
-             <motion.div 
-                layoutId="activeTabGlow"
-                className="absolute bottom-0 left-0 right-0 h-[2px]"
-                style={{
-                    background: 'linear-gradient(90deg, transparent 0%, #ffffff 50%, transparent 100%)',
-                    boxShadow: '0 -2px 8px rgba(255, 255, 255, 0.5)'
-                }}
-             />
+             <motion.div layoutId="activeTabGlow" className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ background: 'linear-gradient(90deg, transparent 0%, #ffffff 50%, transparent 100%)', boxShadow: '0 -2px 8px rgba(255, 255, 255, 0.5)' }} />
            )}
         </button>
 
         <div className="w-[1px] h-4 mb-3 bg-white/10 mx-1 self-end" />
 
-        {/* INDIVIDUAL TABS */}
         {STREAMERS.map((streamer) => {
            const isActive = selectedStreamerId === streamer.id;
            const streamerPlatform = activeStreamers[streamer.id];
-           
            return (
              <button
                key={streamer.id}
                onClick={() => setSelectedStreamerId(streamer.id)}
-               className={`
-                 relative group flex-1 flex items-center justify-center gap-2 h-10 rounded-t-lg transition-all duration-300 min-w-[90px]
-                 ${isActive ? 'bg-white/5 text-white' : 'text-neutral-500 hover:bg-white/5 hover:text-neutral-300'}
-               `}
+               className={`relative group flex-1 flex items-center justify-center gap-2 h-10 rounded-t-lg transition-all duration-300 min-w-[90px] ${isActive ? 'bg-white/5 text-white' : 'text-neutral-500 hover:bg-white/5 hover:text-neutral-300'}`}
              >
-               <span className="text-[9px] font-bold uppercase truncate z-10">
-                 {streamer.name}
-               </span>
+               <span className="text-[9px] font-bold uppercase truncate z-10">{streamer.name}</span>
                <div className={`transition-opacity duration-300 z-10 ${isActive ? 'opacity-100' : 'opacity-40 group-hover:opacity-80'}`}>
                  <ChatIcon platform={streamerPlatform} />
                </div>
-               
                {isActive && (
-                 <motion.div 
-                   layoutId="activeTabGlow"
-                   className="absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full"
-                   style={{ 
-                       background: `linear-gradient(90deg, transparent 0%, ${streamer.color} 50%, transparent 100%)`,
-                       boxShadow: `0 -4px 12px ${streamer.color}66` // Hex transparency for glow
-                   }}
-                 />
+                 <motion.div layoutId="activeTabGlow" className="absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full" style={{ background: `linear-gradient(90deg, transparent 0%, ${streamer.color} 50%, transparent 100%)`, boxShadow: `0 -4px 12px ${streamer.color}66` }} />
                )}
-               
-               {/* Background subtle gradient for active state */}
-               {isActive && (
-                   <div className="absolute inset-0 bg-gradient-to-t from-white/5 to-transparent rounded-t-lg opacity-50" />
-               )}
+               {isActive && <div className="absolute inset-0 bg-gradient-to-t from-white/5 to-transparent rounded-t-lg opacity-50" />}
              </button>
            );
         })}
         
-        {/* Close Button */}
-        <button 
-            onClick={onClose}
-            className="flex-none w-8 h-8 mb-1 flex items-center justify-center rounded-full text-neutral-500 hover:text-white hover:bg-white/10 transition-colors ml-auto"
-        >
+        <button onClick={onClose} className="flex-none w-8 h-8 mb-1 flex items-center justify-center rounded-full text-neutral-500 hover:text-white hover:bg-white/10 transition-colors ml-auto">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 18 18"/></svg>
         </button>
       </div>
 
-      {/* Chat Container */}
       <div className="flex-1 relative bg-black flex flex-col overflow-hidden">
          {selectedStreamerId === 'all' ? (
-           // MIX VIEW
            <div className="flex flex-col h-full w-full">
              {CUSTOM_MERGED_CHAT_URL ? (
-                <iframe 
-                   src={CUSTOM_MERGED_CHAT_URL} 
-                   className="w-full h-full border-none" 
-                   title="Unified Chat"
-                   loading="lazy"
-                />
+                <iframe src={CUSTOM_MERGED_CHAT_URL} className="w-full h-full border-none" title="Unified Chat" loading="lazy" />
              ) : (
-                STREAMERS.map((streamer, idx) => {
+                STREAMERS.map((streamer) => {
                   const platform = activeStreamers[streamer.id] || Platform.Twitch;
                   const url = getChatUrl(streamer, platform);
-                  
                   return (
-                    <div 
-                       key={streamer.id} 
-                       className="flex-1 relative w-full min-h-0 border-b border-white/5 last:border-0 overflow-hidden"
-                    >
+                    <div key={streamer.id} className="flex-1 relative w-full min-h-0 border-b border-white/5 last:border-0 overflow-hidden">
                        {platform === Platform.YouTube ? (
                           <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0F0F0F]">
                             <span className="text-[9px] font-bold text-neutral-600 uppercase mb-2">Chat do YouTube (Pop-out necessário)</span>
-                            <a 
-                               href={`https://youtube.com/${streamer.channels[Platform.YouTube]}`}
-                               target="_blank"
-                               rel="noreferrer"
-                               className="px-3 py-1 bg-white/5 hover:bg-white/10 text-[9px] text-neutral-400 uppercase rounded transition"
-                            >
-                               Abrir
-                            </a>
+                            <a href={`https://youtube.com/${streamer.channels[Platform.YouTube]}`} target="_blank" rel="noreferrer" className="px-3 py-1 bg-white/5 hover:bg-white/10 text-[9px] text-neutral-400 uppercase rounded transition">Abrir</a>
                           </div>
                        ) : (
-                         <iframe 
-                           src={url} 
-                           className="w-full h-full border-none block" 
-                           title={`${streamer.name} Chat`}
-                           loading="lazy"
-                         />
+                         <iframe src={url} className="w-full h-full border-none block" title={`${streamer.name} Chat`} loading="lazy" />
                        )}
                     </div>
                   );
@@ -193,7 +124,6 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
              )}
            </div>
          ) : (
-           // SINGLE STREAMER VIEW
            <div className="w-full h-full">
              {(() => {
                  const streamer = STREAMERS.find(s => s.id === selectedStreamerId);
@@ -206,23 +136,11 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
                         <div className="h-full flex flex-col items-center justify-center p-6 text-center text-neutral-500 bg-[#0F0F0F]">
                             <YouTubeIcon className="w-12 h-12 mb-4 opacity-20" />
                             <p className="text-xs mb-4">O YouTube não permite incorporar o chat diretamente.</p>
-                            <a 
-                                href={`https://youtube.com/${streamer.channels[Platform.YouTube]}`} 
-                                target="_blank" 
-                                rel="noreferrer"
-                                className="px-5 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold uppercase rounded transition"
-                            >
-                                Abrir Chat Externo
-                            </a>
+                            <a href={`https://youtube.com/${streamer.channels[Platform.YouTube]}`} target="_blank" rel="noreferrer" className="px-5 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold uppercase rounded transition">Abrir Chat Externo</a>
                         </div>
                     );
                  }
-                 return <iframe 
-                            src={url} 
-                            className="w-full h-full border-none" 
-                            title="Chat" 
-                            loading="lazy" 
-                        />;
+                 return <iframe src={url} className="w-full h-full border-none" title="Chat" loading="lazy" />;
              })()}
            </div>
          )}
