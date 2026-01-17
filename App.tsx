@@ -15,7 +15,8 @@ const App = () => {
     [s.id]: s.defaultPlatform
   }), {});
 
-  const [streamerStates, setStreamerStates] = useLocalStorage<Record<string, Platform>>('multi_viictorn_v5', defaultState);
+  // VERSION UP: v6 - Forces a reset of stored streamer platforms to fix potential data corruption
+  const [streamerStates, setStreamerStates] = useLocalStorage<Record<string, Platform>>('multi_viictorn_v6', defaultState);
   const [layoutMode, setLayoutMode] = useLocalStorage<LayoutMode>('layout_mode_v2', 'columns');
   
   const [isChatOpen, setIsChatOpen] = useState(true);

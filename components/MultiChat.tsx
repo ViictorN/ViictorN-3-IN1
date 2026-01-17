@@ -13,23 +13,22 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
   const [selectedStreamerId, setSelectedStreamerId] = useState<string>('all');
   
   // Lazy init hostname
-  const [hostname] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return window.location.hostname;
-    }
-    return '';
-  });
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
 
   const getChatUrl = (streamer: StreamerConfig, platform: Platform) => {
     // Robust Parent Logic matching StreamSlot
     const domains = new Set<string>();
     domains.add('viictornmultistream.vercel.app');
+    domains.add('localhost');
+    domains.add('127.0.0.1');
     
     if (hostname) {
         domains.add(hostname);
-        const root = hostname.replace(/^www\./, '');
-        domains.add(root);
-        domains.add(`www.${root}`);
+        if (hostname.startsWith('www.')) {
+             domains.add(hostname.replace('www.', ''));
+        } else {
+             domains.add(`www.${hostname}`);
+        }
     }
 
     const parentParams = Array.from(domains).map(d => `parent=${d}`).join('&');
@@ -41,6 +40,8 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
       case Platform.Twitch:
         return `https://www.twitch.tv/embed/${channelId}/chat?${parentParams}&darkpopout`;
       case Platform.YouTube:
+        // YouTube Chat Embedding is restricted by YouTube. 
+        // Returning empty triggers the fallback UI.
         return ''; 
       case Platform.Kick:
         return `https://kick.com/${channelId}/chatroom`;
@@ -68,7 +69,7 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
       transition={{ type: 'spring', damping: 30, stiffness: 300 }}
       className="fixed inset-y-0 right-0 w-full md:w-[420px] bg-black/90 backdrop-blur-2xl border-l border-white/5 z-50 flex flex-col shadow-2xl"
     >
-      {/* Navigation Tabs - Glass, Rounded, Gradient */}
+      {/* Navigation Tabs */}
       <div className="flex flex-none items-end h-14 bg-gradient-to-b from-black/80 to-black/40 border-b border-white/5 px-2 gap-1 overflow-x-auto no-scrollbar">
         
         {/* MIX TAB */}
@@ -135,7 +136,7 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
            );
         })}
         
-        {/* Close Button - Integrated */}
+        {/* Close Button */}
         <button 
             onClick={onClose}
             className="flex-none w-8 h-8 mb-1 flex items-center justify-center rounded-full text-neutral-500 hover:text-white hover:bg-white/10 transition-colors ml-auto"
@@ -184,8 +185,6 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
                            className="w-full h-full border-none block" 
                            title={`${streamer.name} Chat`}
                            loading="lazy"
-                           referrerPolicy="strict-origin-when-cross-origin"
-                           // No sandbox
                          />
                        )}
                     </div>
@@ -223,7 +222,6 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
                             className="w-full h-full border-none" 
                             title="Chat" 
                             loading="lazy" 
-                            referrerPolicy="strict-origin-when-cross-origin"
                         />;
              })()}
            </div>

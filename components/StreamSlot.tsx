@@ -12,31 +12,36 @@ interface StreamSlotProps {
 const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPlatformChange }) => {
   const [showControls, setShowControls] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0); 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isIframeLoaded, setIsIframeLoaded] = useState(false);
 
-  // Synchronous hostname access prevents race conditions on first render
+  // Robust Hostname Detection
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
   const channelId = streamer.channels[currentPlatform];
   const hasValidChannel = Boolean(channelId && channelId.trim().length > 0 && !channelId.includes('Inserir'));
 
   const handleReload = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsLoading(true);
+    setIsIframeLoaded(false);
     setRefreshKey(prev => prev + 1);
   };
 
   const embedUrl = useMemo(() => {
     if (!hasValidChannel || !channelId) return '';
 
-    // TWITCH PARENT LOGIC
-    // Must include the current domain AND common deployment domains
+    // --- TWITCH PARENT LOGIC ---
+    // Twitch requires 'parent' to match the domain where the iframe is embedded.
+    // We construct a list of all potential environments.
     const parents = new Set<string>();
     
-    // Add current hostname immediately
+    parents.add('viictornmultistream.vercel.app'); // Production
+    parents.add('localhost'); // Local Dev
+    parents.add('127.0.0.1'); // Local Dev IP
+    
     if (hostname) {
         parents.add(hostname);
-        // Smart handling: if www is present, add non-www, and vice-versa
+        // Handle www variations
         if (hostname.startsWith('www.')) {
             parents.add(hostname.replace('www.', ''));
         } else {
@@ -44,32 +49,23 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
         }
     }
 
-    // Default Safe List
-    parents.add('viictornmultistream.vercel.app');
-    parents.add('localhost');
-    parents.add('127.0.0.1');
-
     const parentQuery = Array.from(parents).map(p => `parent=${p}`).join('&');
 
     switch (currentPlatform) {
       case Platform.Twitch:
-        // muted=true is CRITICAL for autoplay in modern browsers
         return `https://player.twitch.tv/?channel=${channelId}&${parentQuery}&muted=true&autoplay=true`;
         
       case Platform.YouTube:
-        // YouTube Live Embed
-        // Note: Returns "Video Unavailable" if channel is offline.
-        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        // 'origin' parameter helps with CORS policies on YouTube embeds
         return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1&controls=1&playsinline=1&origin=${origin}`; 
         
       case Platform.Kick:
-        // Kick Player
         return `https://player.kick.com/${channelId}?autoplay=true&muted=true`;
         
       default:
         return '';
     }
-  }, [channelId, currentPlatform, hostname, hasValidChannel]);
+  }, [channelId, currentPlatform, hostname, origin, hasValidChannel]);
 
   return (
     <div className="relative w-full h-full bg-black overflow-hidden group">
@@ -78,31 +74,37 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
       <div className="absolute inset-0 z-0 bg-black">
          {hasValidChannel && embedUrl ? (
             <>
+                {/* Loading Spinner - Disappears when iframe loads */}
+                {!isIframeLoaded && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 z-0">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="w-8 h-8 border-4 border-white/10 border-t-white/80 rounded-full animate-spin"></div>
+                            <span className="text-[10px] text-white/40 font-mono tracking-widest uppercase">Conectando {currentPlatform}...</span>
+                        </div>
+                    </div>
+                )}
+
                 <iframe
                     key={`${currentPlatform}-${refreshKey}`} 
                     src={embedUrl}
                     title={`${streamer.name} - ${currentPlatform}`}
-                    className="w-full h-full border-none"
+                    className={`w-full h-full border-none transition-opacity duration-500 ${isIframeLoaded ? 'opacity-100' : 'opacity-0'}`}
                     allowFullScreen
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-                    onLoad={() => setIsLoading(false)}
-                    // No sandbox for maximum compatibility
+                    onLoad={() => setIsIframeLoaded(true)}
                 />
-                
-                {/* Loading Indicator */}
-                {isLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 z-0">
-                        <div className="w-8 h-8 border-4 border-white/10 border-t-white rounded-full animate-spin"></div>
-                    </div>
-                )}
             </>
          ) : (
            // OFFLINE / INVALID STATE
            <div className="flex flex-col items-center justify-center w-full h-full text-white/20 select-none p-4 text-center">
                 <span className="text-3xl md:text-4xl font-black uppercase tracking-widest opacity-50">{streamer.name}</span>
                 <span className="text-xs md:text-sm font-medium tracking-wider mt-3 opacity-40">
-                    {channelId ? 'Carregando Player...' : 'ID não configurado'}
+                    {channelId ? 'Carregando...' : 'Canal Offline / Não Configurado'}
                 </span>
+                {/* Debug Info for User */}
+                <div className="mt-4 text-[9px] font-mono opacity-30">
+                    {currentPlatform} • {channelId || 'No ID'}
+                </div>
            </div>
          )}
       </div>
@@ -128,7 +130,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
                   <button
                       onClick={handleReload}
                       className="w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                      title="Recarregar"
+                      title="Recarregar Player"
                   >
                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
                   </button>
@@ -142,7 +144,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
                           w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200
                           bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:bg-white/10 hover:text-white
                       `}
-                      title="Configurar"
+                      title="Configurar Streamer"
                   >
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                   </button>
@@ -184,7 +186,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
                   onSelect={(p) => {
                       onPlatformChange(p);
                       setShowControls(false);
-                      setIsLoading(true);
+                      setIsIframeLoaded(false);
                       setRefreshKey(prev => prev + 1);
                   }}
                 />
