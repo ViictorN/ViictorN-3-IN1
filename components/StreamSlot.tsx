@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StreamerConfig, Platform } from '../types';
 import PlatformSelector from './PlatformSelector';
@@ -12,20 +12,17 @@ interface StreamSlotProps {
 const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPlatformChange }) => {
   const [showControls, setShowControls] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0); 
-  const [hostname, setHostname] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Hydration fix: Get hostname only on client
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setHostname(window.location.hostname);
-    }
-  }, []);
+  // Synchronous hostname access prevents race conditions on first render
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
 
   const channelId = streamer.channels[currentPlatform];
   const hasValidChannel = Boolean(channelId && channelId.trim().length > 0 && !channelId.includes('Inserir'));
 
   const handleReload = (e: React.MouseEvent) => {
     e.stopPropagation();
+    setIsLoading(true);
     setRefreshKey(prev => prev + 1);
   };
 
@@ -35,7 +32,19 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
     // TWITCH PARENT LOGIC
     // Must include the current domain AND common deployment domains
     const parents = new Set<string>();
-    if (hostname) parents.add(hostname);
+    
+    // Add current hostname immediately
+    if (hostname) {
+        parents.add(hostname);
+        // Smart handling: if www is present, add non-www, and vice-versa
+        if (hostname.startsWith('www.')) {
+            parents.add(hostname.replace('www.', ''));
+        } else {
+            parents.add(`www.${hostname}`);
+        }
+    }
+
+    // Default Safe List
     parents.add('viictornmultistream.vercel.app');
     parents.add('localhost');
     parents.add('127.0.0.1');
@@ -44,12 +53,12 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
 
     switch (currentPlatform) {
       case Platform.Twitch:
-        // muted=true is essential for autoplay
+        // muted=true is CRITICAL for autoplay in modern browsers
         return `https://player.twitch.tv/?channel=${channelId}&${parentQuery}&muted=true&autoplay=true`;
         
       case Platform.YouTube:
         // YouTube Live Embed
-        // Note: This requires the channel to be actively streaming.
+        // Note: Returns "Video Unavailable" if channel is offline.
         const origin = typeof window !== 'undefined' ? window.location.origin : '';
         return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1&controls=1&playsinline=1&origin=${origin}`; 
         
@@ -65,19 +74,28 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
   return (
     <div className="relative w-full h-full bg-black overflow-hidden group">
       
-      {/* 1. IFRAME CONTAINER (Interaction Allowed) */}
+      {/* 1. IFRAME CONTAINER */}
       <div className="absolute inset-0 z-0 bg-black">
          {hasValidChannel && embedUrl ? (
-            <iframe
-              key={`${currentPlatform}-${refreshKey}`} 
-              src={embedUrl}
-              title={`${streamer.name} - ${currentPlatform}`}
-              className="w-full h-full border-none"
-              allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-              // Sandbox attribute removed: It often blocks third-party player scripts (especially Twitch/Kick)
-              // referrerPolicy removed: Let browser handle defaults for best compatibility
-            />
+            <>
+                <iframe
+                    key={`${currentPlatform}-${refreshKey}`} 
+                    src={embedUrl}
+                    title={`${streamer.name} - ${currentPlatform}`}
+                    className="w-full h-full border-none"
+                    allowFullScreen
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                    onLoad={() => setIsLoading(false)}
+                    // No sandbox for maximum compatibility
+                />
+                
+                {/* Loading Indicator */}
+                {isLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 z-0">
+                        <div className="w-8 h-8 border-4 border-white/10 border-t-white rounded-full animate-spin"></div>
+                    </div>
+                )}
+            </>
          ) : (
            // OFFLINE / INVALID STATE
            <div className="flex flex-col items-center justify-center w-full h-full text-white/20 select-none p-4 text-center">
@@ -85,16 +103,11 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
                 <span className="text-xs md:text-sm font-medium tracking-wider mt-3 opacity-40">
                     {channelId ? 'Carregando Player...' : 'ID não configurado'}
                 </span>
-                {!channelId && (
-                  <div className="mt-2 text-[10px] text-red-500 bg-red-500/10 px-2 py-1 rounded">
-                     {currentPlatform}
-                  </div>
-                )}
            </div>
          )}
       </div>
 
-      {/* 2. HUD LAYER (Passthrough clicks) */}
+      {/* 2. HUD LAYER */}
       <div className="absolute inset-0 z-10 pointer-events-none p-4 flex flex-col justify-between">
           
           {/* Top Row */}
@@ -171,6 +184,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
                   onSelect={(p) => {
                       onPlatformChange(p);
                       setShowControls(false);
+                      setIsLoading(true);
                       setRefreshKey(prev => prev + 1);
                   }}
                 />
