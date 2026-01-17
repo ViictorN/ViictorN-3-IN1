@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { StreamerConfig, Platform } from '../types';
 import { STREAMERS, TwitchIcon, YouTubeIcon, KickIcon, CUSTOM_MERGED_CHAT_URL } from '../constants';
 
@@ -11,22 +11,19 @@ interface MultiChatProps {
 
 const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose }) => {
   const [selectedStreamerId, setSelectedStreamerId] = useState<string>('all');
-  const [hostname, setHostname] = useState<string>('');
-
-  useEffect(() => {
+  
+  // Lazy init hostname
+  const [hostname] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      setHostname(window.location.hostname);
+      return window.location.hostname;
     }
-  }, []);
+    return '';
+  });
 
   const getChatUrl = (streamer: StreamerConfig, platform: Platform) => {
-    // Base allowed domains
-    const domains = new Set([
-        'localhost',
-        'viictornmultistream.vercel.app',
-        'www.viictornmultistream.vercel.app',
-        '127.0.0.1'
-    ]);
+    const domains = new Set<string>();
+    domains.add('viictornmultistream.vercel.app');
+    domains.add('www.viictornmultistream.vercel.app');
     
     if (hostname) domains.add(hostname);
 
@@ -182,7 +179,7 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
                            className="w-full h-full border-none block" 
                            title={`${streamer.name} Chat`}
                            loading="lazy"
-                           // Removed sandbox
+                           // No sandbox
                          />
                        )}
                     </div>

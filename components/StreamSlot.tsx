@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StreamerConfig, Platform } from '../types';
 import PlatformSelector from './PlatformSelector';
@@ -11,13 +11,15 @@ interface StreamSlotProps {
 
 const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPlatformChange }) => {
   const [showControls, setShowControls] = useState(false);
-  const [hostname, setHostname] = useState<string>('');
-
-  useEffect(() => {
+  
+  // Lazy init hostname to ensure it's available on first render
+  // This prevents the iframe from loading with 'localhost' then reloading with real domain
+  const [hostname] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      setHostname(window.location.hostname);
+      return window.location.hostname;
     }
-  }, []);
+    return '';
+  });
 
   const channelId = streamer.channels[currentPlatform];
 
@@ -30,15 +32,14 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
   const embedUrl = useMemo(() => {
     if (!channelId) return '';
 
-    // Base allowed domains
-    const domains = new Set([
-      'localhost',
-      'viictornmultistream.vercel.app',
-      'www.viictornmultistream.vercel.app',
-      '127.0.0.1'
-    ]);
+    // Simplified parent logic to avoid excessive params
+    const domains = new Set<string>();
     
-    // Add current hostname if valid
+    // Always add production domains to allow embedding there
+    domains.add('viictornmultistream.vercel.app');
+    domains.add('www.viictornmultistream.vercel.app');
+    
+    // Add current hostname if it's different (e.g. localhost, custom domain)
     if (hostname) {
       domains.add(hostname);
     }
@@ -46,16 +47,12 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
     switch (currentPlatform) {
       case Platform.Twitch:
         const parentParams = Array.from(domains).map(d => `parent=${d}`).join('&');
-        // muted=true is safer for autoplay. 
-        // We use autoplay=true so it starts buffering immediately.
         return `https://player.twitch.tv/?channel=${channelId}&${parentParams}&muted=true&autoplay=true`;
         
       case Platform.YouTube:
-        // YouTube requires 'live_stream' embed type for channel IDs
         return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1`; 
 
       case Platform.Kick:
-        // Kick simple player
         return `https://player.kick.com/${channelId}?autoplay=true&muted=true`;
         
       default:
@@ -75,9 +72,8 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
               src={embedUrl}
               title={`${streamer.name} - ${currentPlatform}`}
               className="w-full h-full border-none pointer-events-auto"
-              // REMOVED SANDBOX: Essential for Desktop interaction (Click to Play).
-              // Twitch and Kick scripts often fail silently inside any sandbox environment on PC browsers.
-              referrerPolicy="origin"
+              // No sandbox to prevent interaction issues on PC
+              referrerPolicy="strict-origin-when-cross-origin"
               allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             />
@@ -91,7 +87,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
 
       {/* 2. HUD ELEMENTS */}
       
-      {/* Platform Badge - Non-interactive background, text is fine */}
+      {/* Platform Badge */}
       <div className="absolute top-4 left-4 z-10 pointer-events-none">
         <div className={`
           pointer-events-auto
