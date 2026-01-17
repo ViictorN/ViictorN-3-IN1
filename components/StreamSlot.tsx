@@ -63,11 +63,9 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
         return `https://player.twitch.tv/?channel=${channelId}&${twitchParentParams}&muted=true&autoplay=true`;
         
       case Platform.YouTube:
-        // Added 'origin' which is critical for some PC browser policies
         return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1&controls=1&playsinline=1&origin=${origin}`; 
         
       case Platform.Kick:
-        // Removed 'muted=true' for Kick as it causes interaction bugs on some players
         return `https://player.kick.com/${channelId}?autoplay=true`;
         
       default:
@@ -76,20 +74,20 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
   }, [channelId, currentPlatform, hostname, origin]);
 
   return (
-    <div className="relative w-full h-full bg-black overflow-hidden group isolate">
+    <div className="relative w-full h-full bg-black overflow-hidden group">
       
-      {/* 1. PLAYER LAYER (z-0) - The Base */}
-      <div className="absolute inset-0 z-0 bg-black">
+      {/* 1. PLAYER LAYER (z-0) */}
+      <div className="absolute inset-0 z-0">
          {channelId ? (
             <iframe
               key={`${currentPlatform}-${refreshKey}`} 
               src={embedUrl}
               title={`${streamer.name} - ${currentPlatform}`}
               className="w-full h-full border-none block"
-              style={{ pointerEvents: 'auto' }} 
+              style={{ pointerEvents: 'auto' }} // Ensure iframe is interactive
               referrerPolicy="strict-origin-when-cross-origin" 
               allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; interactive-widget"
             />
          ) : (
            <div className="flex flex-col items-center justify-center w-full h-full text-white/10 select-none">
@@ -100,12 +98,12 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
       </div>
 
       {/* 
-          2. HUD LAYER (z-10) - ZERO HEIGHT STRATEGY
-          This container sits at the top but has height-0. 
-          It physically CANNOT cover the center of the screen.
-          We use overflow-visible so the buttons can "hang" down from it.
+          2. HUD LAYER (z-10) - HEIGHT ZERO TECHNIQUE 
+          This container is effectively invisible to clicks in the center because it has height 0.
+          We use overflow-visible to let the buttons "hang" down.
+          pointer-events-none ensures the strip itself doesn't block.
       */}
-      <div className="absolute top-0 left-0 right-0 h-0 z-10 flex justify-between p-4 pointer-events-none overflow-visible">
+      <div className="absolute top-0 left-0 w-full h-0 z-10 flex justify-between p-4 pointer-events-none overflow-visible">
           
           {/* Badge (Top Left) */}
           <div className="pointer-events-auto h-fit">
