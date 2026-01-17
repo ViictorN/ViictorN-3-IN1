@@ -162,8 +162,8 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
         className="absolute inset-0 z-20 pointer-events-none p-4 flex flex-col justify-between bg-gradient-to-b from-black/60 via-transparent to-black/60"
       >
           {/* TOP RIGHT: Actions */}
-          <div className="w-full flex justify-end pointer-events-auto">
-              <div className="flex gap-2">
+          <div className="w-full flex justify-end">
+              <div className="flex gap-2 pointer-events-auto">
                   <button 
                     onClick={(e) => { e.stopPropagation(); onToggleExpand(); }} 
                     className={`
@@ -189,8 +189,8 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
           </div>
 
           {/* BOTTOM CENTER: Badge & Selector Container */}
-          <div className="w-full flex justify-center pointer-events-auto">
-              <div className="relative">
+          <div className="w-full flex justify-center">
+              <div className="relative pointer-events-auto">
                   {/* Dropdown Menu (Opens Upwards now) */}
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50">
                     <PlatformSelector 
