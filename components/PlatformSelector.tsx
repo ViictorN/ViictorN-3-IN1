@@ -24,11 +24,15 @@ const PlatformSelector: React.FC<PlatformSelectorProps> = ({
     }
   };
 
-  const getColor = (p: Platform) => {
+  const getActiveStyle = (p: Platform) => {
     switch (p) {
-      case Platform.Twitch: return 'hover:text-twitch hover:shadow-[0_0_10px_rgba(145,70,255,0.4)]';
-      case Platform.YouTube: return 'hover:text-youtube hover:shadow-[0_0_10px_rgba(255,0,0,0.4)]';
-      case Platform.Kick: return 'hover:text-kick hover:shadow-[0_0_10px_rgba(83,252,24,0.4)]';
+      case Platform.Twitch: 
+        return 'text-[#9146FF] bg-[#9146FF]/10 border-[#9146FF]/30';
+      case Platform.YouTube: 
+        return 'text-[#FF0000] bg-[#FF0000]/10 border-[#FF0000]/30';
+      case Platform.Kick: 
+        return 'text-[#53FC18] bg-[#53FC18]/10 border-[#53FC18]/30';
+      default: return 'text-white bg-white/10';
     }
   };
 
@@ -36,10 +40,10 @@ const PlatformSelector: React.FC<PlatformSelectorProps> = ({
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{ opacity: 0, y: 5, scale: 0.95 }}
+          initial={{ opacity: 0, y: -5, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 5, scale: 0.95 }}
-          className="flex gap-1.5 p-1.5 bg-black/80 backdrop-blur-xl border border-white/10 rounded-[18px] shadow-2xl"
+          exit={{ opacity: 0, y: -5, scale: 0.95 }}
+          className="flex flex-col gap-1 p-1 bg-black/60 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl min-w-[130px] origin-top-left"
         >
           {availablePlatforms.map((p) => {
             const isActive = currentPlatform === p;
@@ -51,22 +55,24 @@ const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                   onSelect(p);
                 }}
                 className={`
-                  relative p-2 rounded-[14px] transition-all duration-300 group
-                  ${isActive ? 'bg-white/10 text-white shadow-inner' : 'text-neutral-500 bg-transparent hover:bg-white/5'}
-                  ${getColor(p)}
+                  relative group flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 border
+                  ${isActive 
+                    ? getActiveStyle(p)
+                    : 'bg-transparent border-transparent text-neutral-400 hover:bg-white/5 hover:text-white'
+                  }
                 `}
-                aria-label={`Switch to ${p}`}
               >
-                {isActive && (
-                  <motion.div
-                    layoutId="activePlatformGlow"
-                    className="absolute inset-0 rounded-[14px] border border-white/20"
-                    transition={{ duration: 0.3 }}
-                  />
-                )}
-                <div className={`relative z-10 w-4 h-4 ${isActive ? 'scale-110' : 'scale-100 group-hover:scale-105'} transition-transform`}>
+                <div className={`w-4 h-4 flex-shrink-0 opacity-80 ${isActive ? 'opacity-100' : 'group-hover:opacity-100'}`}>
                   {getIcon(p, "w-full h-full")}
                 </div>
+
+                <span className="text-[10px] font-bold uppercase tracking-wider flex-1 text-left">
+                    {p}
+                </span>
+
+                {isActive && (
+                    <div className="w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]" />
+                )}
               </button>
             );
           })}
