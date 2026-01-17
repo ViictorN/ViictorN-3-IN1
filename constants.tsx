@@ -48,7 +48,8 @@ export const STREAMERS: StreamerConfig[] = [
     channels: {
       [Platform.Twitch]: 'gabepeixe', 
       [Platform.Kick]: 'gabepeixe',
-      [Platform.YouTube]: 'gabepeixe',
+      // YouTube Lives requerem Channel ID (UC...) e não @handle.
+      [Platform.YouTube]: 'UCq... (Inserir ID se houver)', 
     },
   },
   {
@@ -59,7 +60,7 @@ export const STREAMERS: StreamerConfig[] = [
     color: '#FF0000', // YouTube red dominant
     channels: {
       [Platform.Twitch]: 'loud_coringa',
-      [Platform.YouTube]: 'UChc6C0847V_X9N9vJtW7W8w', // ID DO CANAL Real (Necessário para embed de live)
+      [Platform.YouTube]: 'UChc6C0847V_X9N9vJtW7W8w', // ID Correto para Embed Live
       [Platform.Kick]: 'coringa',
     },
   },
@@ -72,7 +73,7 @@ export const STREAMERS: StreamerConfig[] = [
     channels: {
       [Platform.Twitch]: 'loud_brabox', 
       [Platform.Kick]: 'brabox',
-      [Platform.YouTube]: 'LOUDBrabox',
+      [Platform.YouTube]: 'UCw7e1l-Wfqc9G-D_9fV1-zA', // ID Correto para Embed Live (LOUD Brabox)
     },
   },
 ];
