@@ -161,38 +161,8 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
         transition={{ duration: 0.3 }}
         className="absolute inset-0 z-20 pointer-events-none p-4 flex flex-col justify-between bg-gradient-to-b from-black/60 via-transparent to-black/60"
       >
-          {/* Top Bar */}
-          <div className="relative flex justify-between items-start w-full pointer-events-auto">
-              {/* Badge & Selector Container */}
-              <div className="relative">
-                  <div 
-                    onClick={(e) => { e.stopPropagation(); setShowSelector(!showSelector); }}
-                    className={`
-                      cursor-pointer select-none
-                      flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md border
-                      transition-all duration-300 hover:scale-105 active:scale-95
-                      ${getBadgeStyle()}
-                    `}
-                  >
-                    <div className={`w-1.5 h-1.5 rounded-full ${currentPlatform === Platform.Kick ? 'bg-[#53FC18]' : 'bg-current'} animate-pulse`} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest leading-none pt-[1px]">
-                        {currentPlatform}
-                    </span>
-                    <svg className={`w-3 h-3 transition-transform ${showSelector ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6"/></svg>
-                  </div>
-
-                  {/* Dropdown Menu */}
-                  <div className="absolute top-full left-0 mt-2 z-50">
-                    <PlatformSelector 
-                      isOpen={showSelector}
-                      currentPlatform={currentPlatform}
-                      availablePlatforms={Object.keys(streamer.channels).map(k => k as Platform)}
-                      onSelect={(p) => { onPlatformChange(p); setShowSelector(false); setIsLoading(true); setRefreshKey(prev => prev + 1); }}
-                    />
-                  </div>
-              </div>
-
-              {/* Actions */}
+          {/* TOP RIGHT: Actions */}
+          <div className="w-full flex justify-end pointer-events-auto">
               <div className="flex gap-2">
                   <button 
                     onClick={(e) => { e.stopPropagation(); onToggleExpand(); }} 
@@ -215,6 +185,38 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
                   <button onClick={handleReload} className="w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-colors" title="Recarregar Player">
                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
                   </button>
+              </div>
+          </div>
+
+          {/* BOTTOM CENTER: Badge & Selector Container */}
+          <div className="w-full flex justify-center pointer-events-auto">
+              <div className="relative">
+                  {/* Dropdown Menu (Opens Upwards now) */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50">
+                    <PlatformSelector 
+                      isOpen={showSelector}
+                      currentPlatform={currentPlatform}
+                      availablePlatforms={Object.keys(streamer.channels).map(k => k as Platform)}
+                      onSelect={(p) => { onPlatformChange(p); setShowSelector(false); setIsLoading(true); setRefreshKey(prev => prev + 1); }}
+                    />
+                  </div>
+
+                  {/* Trigger Button */}
+                  <div 
+                    onClick={(e) => { e.stopPropagation(); setShowSelector(!showSelector); }}
+                    className={`
+                      cursor-pointer select-none
+                      flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md border
+                      transition-all duration-300 hover:scale-105 active:scale-95
+                      ${getBadgeStyle()}
+                    `}
+                  >
+                    <div className={`w-1.5 h-1.5 rounded-full ${currentPlatform === Platform.Kick ? 'bg-[#53FC18]' : 'bg-current'} animate-pulse`} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest leading-none pt-[1px]">
+                        {currentPlatform}
+                    </span>
+                    <svg className={`w-3 h-3 transition-transform ${showSelector ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                  </div>
               </div>
           </div>
       </motion.div>
