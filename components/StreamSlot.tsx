@@ -76,7 +76,8 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
   return (
     <div className="relative w-full h-full bg-black overflow-hidden group">
       
-      {/* 1. PLAYER LAYER (z-0) */}
+      {/* 1. VIDEO LAYER (z-0) */}
+      {/* Absolute positioning to fill the container. */}
       <div className="absolute inset-0 z-0">
          {channelId ? (
             <iframe
@@ -84,7 +85,6 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
               src={embedUrl}
               title={`${streamer.name} - ${currentPlatform}`}
               className="w-full h-full border-none block"
-              style={{ pointerEvents: 'auto' }} // Ensure iframe is interactive
               referrerPolicy="strict-origin-when-cross-origin" 
               allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; interactive-widget"
@@ -97,61 +97,69 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
          )}
       </div>
 
+      {/* 2. HUD OVERLAY (z-10) - PASS-THROUGH CONTAINER */}
       {/* 
-          2. HUD LAYER (z-10) - HEIGHT ZERO TECHNIQUE 
-          This container is effectively invisible to clicks in the center because it has height 0.
-          We use overflow-visible to let the buttons "hang" down.
-          pointer-events-none ensures the strip itself doesn't block.
+          This container covers the entire video area but has pointer-events-none.
+          This ensures that clicks ANYWHERE in the empty space pass through to the iframe (z-0).
+          Only the specific children (Badge, Buttons) have pointer-events-auto to capture clicks.
       */}
-      <div className="absolute top-0 left-0 w-full h-0 z-10 flex justify-between p-4 pointer-events-none overflow-visible">
+      <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-4">
           
-          {/* Badge (Top Left) */}
-          <div className="pointer-events-auto h-fit">
-            <div className={`
-              cursor-default select-none
-              px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded shadow-lg backdrop-blur-md border border-white/5
-              ${currentPlatform === Platform.Twitch ? 'bg-twitch text-white' : ''}
-              ${currentPlatform === Platform.YouTube ? 'bg-youtube text-white' : ''}
-              ${currentPlatform === Platform.Kick ? 'bg-kick text-black' : ''}
-            `}>
-              {currentPlatform}
+          {/* Header Row */}
+          <div className="flex justify-between items-start w-full">
+            
+            {/* Badge (Top Left) */}
+            <div className="pointer-events-auto">
+                <div className={`
+                  cursor-default select-none
+                  px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded shadow-lg backdrop-blur-md border border-white/5
+                  ${currentPlatform === Platform.Twitch ? 'bg-twitch text-white' : ''}
+                  ${currentPlatform === Platform.YouTube ? 'bg-youtube text-white' : ''}
+                  ${currentPlatform === Platform.Kick ? 'bg-kick text-black' : ''}
+                `}>
+                  {currentPlatform}
+                </div>
             </div>
-          </div>
 
-          {/* Controls (Top Right) */}
-          <div className="pointer-events-auto h-fit flex gap-2">
-            {/* Reload Button */}
-            <button
-                onClick={handleReload}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                title="Recarregar Player"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-            </button>
+            {/* Controls (Top Right) */}
+            <div className="pointer-events-auto flex gap-2">
+                {/* Reload Button */}
+                <button
+                    onClick={handleReload}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                    title="Recarregar Player"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                </button>
 
-            {/* Settings Button */}
-            <button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    setShowControls(prev => !prev);
-                }}
-                className={`
-                    w-8 h-8 flex items-center justify-center rounded-full
-                    transition-all duration-200 cursor-pointer
-                    ${showControls 
-                        ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.3)]' 
-                        : 'bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
-                    }
-                `}
-                title="Trocar Plataforma"
-            >
-                {showControls ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 18 18"/></svg>
-                ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-                )}
-            </button>
+                {/* Settings Button */}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowControls(prev => !prev);
+                    }}
+                    className={`
+                        w-8 h-8 flex items-center justify-center rounded-full
+                        transition-all duration-200 cursor-pointer
+                        ${showControls 
+                            ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.3)]' 
+                            : 'bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+                        }
+                    `}
+                    title="Trocar Plataforma"
+                >
+                    {showControls ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 18 18"/></svg>
+                    ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    )}
+                </button>
+            </div>
+
           </div>
+          
+          {/* Spacer for bottom area if needed later */}
+          <div />
       </div>
 
       {/* 3. SETTINGS OVERLAY (z-20) */}
@@ -162,7 +170,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 z-20 flex flex-col justify-end"
+            className="absolute inset-0 z-20 flex flex-col justify-end pointer-events-auto"
           >
              {/* Gradient Background - Click to dismiss */}
             <div 
