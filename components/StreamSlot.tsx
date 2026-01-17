@@ -60,13 +60,15 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
 
     switch (currentPlatform) {
       case Platform.Twitch:
-        // Use muted=true to allow autoplay. The user can click to unmute.
+        // Twitch often needs muted=true to autoplay without user interaction
         return `https://player.twitch.tv/?channel=${channelId}&${twitchParentParams}&muted=true&autoplay=true`;
         
       case Platform.YouTube:
+        // YouTube needs mute=1
         return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1&controls=1&playsinline=1&origin=${origin}`; 
         
       case Platform.Kick:
+        // Kick player
         return `https://player.kick.com/${channelId}?autoplay=true&muted=true`;
         
       default:
@@ -78,7 +80,6 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
     <div className="relative w-full h-full bg-black overflow-hidden group">
       
       {/* 1. VIDEO LAYER (Z-0) */}
-      {/* Absolute inset-0 ensures it fills the parent completely. No extra wrappers if possible. */}
       <div className="absolute inset-0 z-0">
          {channelId ? (
             <iframe
@@ -86,9 +87,10 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
               src={embedUrl}
               title={`${streamer.name} - ${currentPlatform}`}
               className="w-full h-full border-none"
+              style={{ pointerEvents: 'auto' }}
               allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; interactive-widget"
-              sandbox="allow-modals allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"
+              // REMOVED SANDBOX ATTRIBUTE: This was blocking click events on players like Twitch/Kick
             />
          ) : (
            <div className="flex flex-col items-center justify-center w-full h-full text-white/10 select-none">
@@ -99,9 +101,10 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
       </div>
 
       {/* 2. HUD - BADGE (Top Left, Z-10) */}
-      {/* Placed directly to avoid container blocking clicks in the center */}
-      <div className="absolute top-4 left-4 z-10 cursor-default select-none">
+      {/* pointer-events-none on container, auto on child to ensure transparent area isn't clickable */}
+      <div className="absolute top-4 left-4 z-10 pointer-events-none">
         <div className={`
+          pointer-events-auto cursor-default select-none
           px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded shadow-lg backdrop-blur-md border border-white/5
           ${currentPlatform === Platform.Twitch ? 'bg-twitch text-white' : ''}
           ${currentPlatform === Platform.YouTube ? 'bg-youtube text-white' : ''}
@@ -112,11 +115,12 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
       </div>
 
       {/* 3. HUD - CONTROLS (Top Right, Z-10) */}
-      <div className="absolute top-4 right-4 z-10 flex gap-2">
+      {/* pointer-events-none on container ensures the gap between buttons doesn't block video */}
+      <div className="absolute top-4 right-4 z-10 flex gap-2 pointer-events-none">
             {/* Reload Button */}
             <button
                 onClick={handleReload}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                className="pointer-events-auto w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
                 title="Recarregar Player"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
@@ -129,7 +133,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
                     setShowControls(prev => !prev);
                 }}
                 className={`
-                    w-8 h-8 flex items-center justify-center rounded-full
+                    pointer-events-auto w-8 h-8 flex items-center justify-center rounded-full
                     transition-all duration-200 cursor-pointer
                     ${showControls 
                         ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.3)]' 
