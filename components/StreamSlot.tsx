@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StreamerConfig, Platform } from '../types';
 import PlatformSelector from './PlatformSelector';
@@ -13,13 +13,24 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
   const [showControls, setShowControls] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0); 
   const [isIframeLoaded, setIsIframeLoaded] = useState(false);
+  const [isFileProtocol, setIsFileProtocol] = useState(false);
 
   // Robust Hostname Detection
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
-  const channelId = streamer.channels[currentPlatform];
-  const hasValidChannel = Boolean(channelId && channelId.trim().length > 0 && !channelId.includes('Inserir'));
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+      setIsFileProtocol(true);
+    }
+  }, []);
+
+  const rawChannelId = streamer.channels[currentPlatform];
+  
+  // Sanitize: Trim whitespace and force lowercase for Twitch/Kick (URLs are case insensitive usually, but APIs prefer lowercase)
+  const channelId = rawChannelId ? rawChannelId.trim() : '';
+  
+  const hasValidChannel = Boolean(channelId && channelId.length > 0 && !channelId.includes('Inserir'));
 
   const handleReload = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -31,17 +42,17 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
     if (!hasValidChannel || !channelId) return '';
 
     // --- TWITCH PARENT LOGIC ---
-    // Twitch requires 'parent' to match the domain where the iframe is embedded.
-    // We construct a list of all potential environments.
     const parents = new Set<string>();
     
-    parents.add('viictornmultistream.vercel.app'); // Production
-    parents.add('localhost'); // Local Dev
-    parents.add('127.0.0.1'); // Local Dev IP
+    // Add known production domains
+    parents.add('viictornmultistream.vercel.app'); 
+    
+    // Add localhost variations for dev
+    parents.add('localhost'); 
+    parents.add('127.0.0.1'); 
     
     if (hostname) {
         parents.add(hostname);
-        // Handle www variations
         if (hostname.startsWith('www.')) {
             parents.add(hostname.replace('www.', ''));
         } else {
@@ -53,13 +64,15 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
 
     switch (currentPlatform) {
       case Platform.Twitch:
-        return `https://player.twitch.tv/?channel=${channelId}&${parentQuery}&muted=true&autoplay=true`;
+        // Force lowercase channel ID for Twitch
+        return `https://player.twitch.tv/?channel=${channelId.toLowerCase()}&${parentQuery}&muted=true&autoplay=true`;
         
       case Platform.YouTube:
-        // 'origin' parameter helps with CORS policies on YouTube embeds
-        return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1&controls=1&playsinline=1&origin=${origin}`; 
+        // YouTube requires strict origin
+        return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1&controls=1&playsinline=1&origin=${origin}&enablejsapi=1`; 
         
       case Platform.Kick:
+        // Kick Player
         return `https://player.kick.com/${channelId}?autoplay=true&muted=true`;
         
       default:
@@ -67,19 +80,41 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
     }
   }, [channelId, currentPlatform, hostname, origin, hasValidChannel]);
 
+  // Link to open stream externally (Troubleshooting)
+  const externalLink = useMemo(() => {
+     if (!channelId) return '#';
+     switch (currentPlatform) {
+        case Platform.Twitch: return `https://twitch.tv/${channelId}`;
+        case Platform.YouTube: return `https://youtube.com/channel/${channelId}/live`;
+        case Platform.Kick: return `https://kick.com/${channelId}`;
+        default: return '#';
+     }
+  }, [channelId, currentPlatform]);
+
   return (
     <div className="relative w-full h-full bg-black overflow-hidden group">
       
       {/* 1. IFRAME CONTAINER */}
       <div className="absolute inset-0 z-0 bg-black">
-         {hasValidChannel && embedUrl ? (
+         {isFileProtocol ? (
+             <div className="flex flex-col items-center justify-center w-full h-full p-6 text-center text-red-400">
+                <span className="font-bold uppercase tracking-widest mb-2">Erro de Protocolo</span>
+                <p className="text-xs text-white/50 max-w-[250px]">
+                    Players de streaming (Twitch/YouTube) não funcionam quando o arquivo é aberto diretamente (file://). 
+                    <br/><br/>
+                    Por favor, use um servidor local (Vite, Live Server, etc.) ou faça deploy.
+                </p>
+             </div>
+         ) : hasValidChannel && embedUrl ? (
             <>
-                {/* Loading Spinner - Disappears when iframe loads */}
+                {/* Loading Spinner */}
                 {!isIframeLoaded && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 z-0">
+                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 z-0 pointer-events-none">
                         <div className="flex flex-col items-center gap-3">
                             <div className="w-8 h-8 border-4 border-white/10 border-t-white/80 rounded-full animate-spin"></div>
-                            <span className="text-[10px] text-white/40 font-mono tracking-widest uppercase">Conectando {currentPlatform}...</span>
+                            <span className="text-[10px] text-white/40 font-mono tracking-widest uppercase">
+                                Carregando {currentPlatform}...
+                            </span>
                         </div>
                     </div>
                 )}
@@ -89,9 +124,12 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
                     src={embedUrl}
                     title={`${streamer.name} - ${currentPlatform}`}
                     className={`w-full h-full border-none transition-opacity duration-500 ${isIframeLoaded ? 'opacity-100' : 'opacity-0'}`}
-                    allowFullScreen
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                    referrerPolicy="strict-origin-when-cross-origin"
                     onLoad={() => setIsIframeLoaded(true)}
+                    allowFullScreen
+                    // Extremely permissive sandbox and allow attributes
+                    sandbox="allow-forms allow-modals allow-popups allow-presentation allow-same-origin allow-scripts allow-storage-access-by-user-activation"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; speaker; microphone"
                 />
             </>
          ) : (
@@ -99,12 +137,19 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
            <div className="flex flex-col items-center justify-center w-full h-full text-white/20 select-none p-4 text-center">
                 <span className="text-3xl md:text-4xl font-black uppercase tracking-widest opacity-50">{streamer.name}</span>
                 <span className="text-xs md:text-sm font-medium tracking-wider mt-3 opacity-40">
-                    {channelId ? 'Carregando...' : 'Canal Offline / Não Configurado'}
+                    {channelId ? 'Canal Offline ou Erro' : 'ID não configurado'}
                 </span>
-                {/* Debug Info for User */}
-                <div className="mt-4 text-[9px] font-mono opacity-30">
-                    {currentPlatform} • {channelId || 'No ID'}
-                </div>
+                
+                {channelId && (
+                    <a 
+                        href={externalLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="mt-4 px-3 py-1 bg-white/5 hover:bg-white/10 text-[10px] uppercase tracking-wider rounded border border-white/5 transition-colors pointer-events-auto"
+                    >
+                        Testar Link Externo
+                    </a>
+                )}
            </div>
          )}
       </div>
