@@ -22,7 +22,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
   }, []);
 
   const channelId = streamer.channels[currentPlatform];
-  const hasValidChannel = Boolean(channelId && channelId !== '' && !channelId.includes('Inserir'));
+  const hasValidChannel = Boolean(channelId && channelId.trim().length > 0 && !channelId.includes('Inserir'));
 
   const handleReload = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -49,6 +49,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
         
       case Platform.YouTube:
         // YouTube Live Embed
+        // Note: This requires the channel to be actively streaming.
         const origin = typeof window !== 'undefined' ? window.location.origin : '';
         return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&mute=1&controls=1&playsinline=1&origin=${origin}`; 
         
@@ -74,8 +75,8 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
               className="w-full h-full border-none"
               allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-              sandbox="allow-modals allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation"
-              referrerPolicy="strict-origin-when-cross-origin"
+              // Sandbox attribute removed: It often blocks third-party player scripts (especially Twitch/Kick)
+              // referrerPolicy removed: Let browser handle defaults for best compatibility
             />
          ) : (
            // OFFLINE / INVALID STATE
@@ -86,7 +87,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
                 </span>
                 {!channelId && (
                   <div className="mt-2 text-[10px] text-red-500 bg-red-500/10 px-2 py-1 rounded">
-                     {currentPlatform} ID missing
+                     {currentPlatform}
                   </div>
                 )}
            </div>
