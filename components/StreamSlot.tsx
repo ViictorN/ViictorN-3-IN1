@@ -10,6 +10,8 @@ interface StreamSlotProps {
   isExpanded: boolean;
   onToggleExpand: () => void;
   isOtherExpanded: boolean;
+  isCinemaMode: boolean; // New prop for Cinema Mode
+  refreshKeyTrigger: number; // Global refresh trigger
 }
 
 const StreamSlot: React.FC<StreamSlotProps> = ({ 
@@ -18,12 +20,17 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
   onPlatformChange,
   isExpanded,
   onToggleExpand,
-  isOtherExpanded
+  isOtherExpanded,
+  isCinemaMode,
+  refreshKeyTrigger
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [showSelector, setShowSelector] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0); 
+  const [localRefreshKey, setLocalRefreshKey] = useState(0); 
   const [isLoading, setIsLoading] = useState(true);
+
+  // Combine global and local refresh keys
+  const effectiveRefreshKey = refreshKeyTrigger + localRefreshKey;
 
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
 
@@ -31,7 +38,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
     setIsLoading(true);
     const timer = setTimeout(() => setIsLoading(false), 5000);
     return () => clearTimeout(timer);
-  }, [currentPlatform, refreshKey]);
+  }, [currentPlatform, effectiveRefreshKey]);
 
   const rawChannelId = streamer.channels[currentPlatform];
   const channelId = rawChannelId ? rawChannelId.trim() : '';
@@ -40,7 +47,18 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
   const handleReload = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsLoading(true);
-    setRefreshKey(prev => prev + 1);
+    setLocalRefreshKey(prev => prev + 1);
+  };
+
+  const handlePopout = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      let url = '';
+      switch (currentPlatform) {
+          case Platform.Twitch: url = `https://twitch.tv/${channelId}/popout`; break;
+          case Platform.YouTube: url = `https://youtube.com/channel/${channelId}/live`; break;
+          case Platform.Kick: url = `https://kick.com/${channelId}`; break;
+      }
+      if (url) window.open(url, '_blank', 'width=1280,height=720');
   };
 
   const embedUrl = useMemo(() => {
@@ -70,16 +88,6 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
     }
   }, [channelId, currentPlatform, hostname, hasValidChannel]);
 
-  const externalLink = useMemo(() => {
-     if (!channelId) return '#';
-     switch (currentPlatform) {
-        case Platform.Twitch: return `https://twitch.tv/${channelId}`;
-        case Platform.YouTube: return `https://youtube.com/channel/${channelId}/live`;
-        case Platform.Kick: return `https://kick.com/${channelId}`;
-        default: return '#';
-     }
-  }, [channelId, currentPlatform]);
-
   const getBadgeStyle = () => {
     switch (currentPlatform) {
         case Platform.Twitch: return 'border-[#9146FF] text-[#d6baff] bg-[#9146FF]/10 shadow-[0_0_15px_rgba(145,70,255,0.2)]';
@@ -102,7 +110,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
          {hasValidChannel && embedUrl ? (
             <>
                 <iframe
-                    key={`${currentPlatform}-${refreshKey}`} 
+                    key={`${currentPlatform}-${effectiveRefreshKey}`} 
                     src={embedUrl}
                     title={`${streamer.name} - ${currentPlatform}`}
                     className="w-full h-full border-none bg-black"
@@ -138,39 +146,47 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
                 <span className="text-xs md:text-sm font-medium tracking-wider mt-3 opacity-40">
                     {channelId ? 'Canal Offline' : 'ID não configurado'}
                 </span>
-                {channelId && (
-                    <a href={externalLink} target="_blank" rel="noopener noreferrer" className="mt-6 px-4 py-2 bg-white/5 hover:bg-white/10 text-xs uppercase tracking-wider rounded-lg border border-white/5 transition-colors pointer-events-auto hover:border-white/20">
-                        Abrir Externamente
-                    </a>
-                )}
            </div>
          )}
       </div>
 
-      {/* 2. PERSISTENT INDICATOR */}
-      {(!isHovered && !showSelector && hasValidChannel && !isLoading) && (
-         <div className="absolute top-4 right-4 z-10 pointer-events-none">
+      {/* 2. STATUS LIGHT (Only visible if UI is active or hovered in Cinema Mode) */}
+      {(!isLoading && hasValidChannel && (isHovered || !isCinemaMode)) && (
+         <div className="absolute top-4 right-4 z-10 pointer-events-none transition-opacity duration-300">
              <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(255,0,0,0.8)] animate-pulse" />
          </div>
       )}
 
-      {/* 3. HUD LAYER */}
+      {/* 3. HUD LAYER (Hidden in Cinema Mode unless hovered) */}
       <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: (isHovered || showSelector || isLoading) ? 1 : 0 }}
+        initial={false}
+        animate={{ opacity: (isCinemaMode && !isHovered && !showSelector) ? 0 : 1 }}
         transition={{ duration: 0.3 }}
-        className="absolute inset-0 z-20 pointer-events-none p-4 flex flex-col justify-between bg-gradient-to-b from-black/60 via-transparent to-black/60"
+        className="absolute inset-0 z-20 pointer-events-none p-4 flex flex-col justify-between"
+        style={{
+            background: (isCinemaMode && !isHovered) ? 'transparent' : 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 25%, rgba(0,0,0,0) 75%, rgba(0,0,0,0.8) 100%)'
+        }}
       >
           {/* TOP RIGHT: Actions */}
           <div className="w-full flex justify-end">
-              <div className="flex gap-2 pointer-events-auto">
+              <div className={`flex gap-2 pointer-events-auto transition-all duration-300 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}>
+                  
+                  {/* Popout Button */}
+                  <button onClick={handlePopout} className="w-8 h-8 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white/70 hover:text-white hover:bg-white/10 transition-colors" title="Abrir em Nova Janela">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
+                  </button>
+
+                  <button onClick={handleReload} className="w-8 h-8 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white/70 hover:text-white hover:bg-white/10 transition-colors" title="Recarregar Player">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                  </button>
+                  
                   <button 
                     onClick={(e) => { e.stopPropagation(); onToggleExpand(); }} 
                     className={`
                         w-8 h-8 flex items-center justify-center rounded-full backdrop-blur-md border transition-colors
                         ${isExpanded 
                             ? 'bg-white text-black border-white hover:bg-white/90' 
-                            : 'bg-black/40 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+                            : 'bg-black/60 border-white/20 text-white/70 hover:bg-white/10 hover:text-white'
                         }
                     `}
                     title={isExpanded ? "Restaurar" : "Expandir"}
@@ -181,23 +197,19 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
                      )}
                   </button>
-
-                  <button onClick={handleReload} className="w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-colors" title="Recarregar Player">
-                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-                  </button>
               </div>
           </div>
 
           {/* BOTTOM CENTER: Badge & Selector Container */}
           <div className="w-full flex justify-center">
-              <div className="relative pointer-events-auto">
+              <div className={`relative pointer-events-auto transition-all duration-300 ${isHovered || showSelector ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
                   {/* Dropdown Menu (Opens Upwards now) */}
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50">
                     <PlatformSelector 
                       isOpen={showSelector}
                       currentPlatform={currentPlatform}
                       availablePlatforms={Object.keys(streamer.channels).map(k => k as Platform)}
-                      onSelect={(p) => { onPlatformChange(p); setShowSelector(false); setIsLoading(true); setRefreshKey(prev => prev + 1); }}
+                      onSelect={(p) => { onPlatformChange(p); setShowSelector(false); setIsLoading(true); setLocalRefreshKey(prev => prev + 1); }}
                     />
                   </div>
 

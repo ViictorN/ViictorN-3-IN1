@@ -20,5 +20,11 @@ export interface StreamState {
   isMuted: boolean;
 }
 
+export interface AppSettings {
+  performanceMode: boolean; // Disables ambient animations
+  cinemaMode: boolean; // Dims UI and hides chat
+  chatWidth: number;
+}
+
 // Map of streamer ID to their current state
 export type MultiStreamState = Record<string, StreamState>;

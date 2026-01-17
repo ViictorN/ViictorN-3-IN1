@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { STREAMERS } from './constants';
-import { Platform } from './types';
+import { Platform, AppSettings } from './types';
 import useLocalStorage from './hooks/useLocalStorage';
 import StreamSlot from './components/StreamSlot';
 import MultiChat from './components/MultiChat';
+import ControlDock from './components/ControlDock';
 
 // Layout modes: 'columns' (3 vertical side-by-side) or 'grid' (1 top, 2 bottom)
 type LayoutMode = 'columns' | 'grid';
@@ -18,16 +19,30 @@ const App = () => {
   const [streamerStates, setStreamerStates] = useLocalStorage<Record<string, Platform>>('multi_viictorn_v7', defaultState);
   const [layoutMode, setLayoutMode] = useLocalStorage<LayoutMode>('layout_mode_v2', 'columns');
   
+  // Settings Store
+  const [settings, setSettings] = useLocalStorage<AppSettings>('multi_settings_v2', {
+      performanceMode: false,
+      cinemaMode: false,
+      chatWidth: 420
+  });
+
   // State for functionality
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [expandedStreamerId, setExpandedStreamerId] = useState<string | null>(null);
+  const [globalRefreshKey, setGlobalRefreshKey] = useState(0);
   
   // Welcome Screen State
   const [hasEntered, setHasEntered] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
   useEffect(() => {
+    // Check if user has already "entered" in this session to skip animation
+    const sessionEntered = sessionStorage.getItem('has_entered_session');
+    if (sessionEntered) {
+        setHasEntered(true);
+    }
+
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
@@ -45,13 +60,18 @@ const App = () => {
             }
             return prev + Math.floor(Math.random() * 5) + 2;
         });
-    }, 50);
+    }, 40);
 
     return () => {
         window.removeEventListener('resize', checkMobile);
         clearInterval(interval);
     };
   }, []);
+
+  const handleEnter = () => {
+      setHasEntered(true);
+      sessionStorage.setItem('has_entered_session', 'true');
+  };
 
   const handlePlatformChange = (streamerId: string, platform: Platform) => {
     setStreamerStates(prev => ({
@@ -65,6 +85,27 @@ const App = () => {
 
   const toggleExpand = (id: string) => {
     setExpandedStreamerId(prev => prev === id ? null : id);
+  };
+
+  const handleResetLayout = () => {
+      setSettings(prev => ({ ...prev, chatWidth: 420, performanceMode: false, cinemaMode: false }));
+      setLayoutMode('columns');
+      setStreamerStates(defaultState);
+      setIsChatOpen(true);
+  };
+
+  const handleRefreshAll = () => {
+    setGlobalRefreshKey(prev => prev + 1);
+  };
+
+  const handleSettingsUpdate = (newSettings: Partial<AppSettings>) => {
+      // Logic side-effect: If enabling Cinema Mode, auto-close chat for immersion.
+      // But we don't lock it closed (user can reopen).
+      if (newSettings.cinemaMode === true) {
+          setIsChatOpen(false);
+      }
+      
+      setSettings(prev => ({ ...prev, ...newSettings }));
   };
 
   // --- WELCOME SCREEN COMPONENT ---
@@ -118,7 +159,7 @@ const App = () => {
                         </div>
 
                         <button 
-                            onClick={() => setHasEntered(true)}
+                            onClick={handleEnter}
                             className="group relative px-10 py-4 bg-white text-black font-black uppercase tracking-widest text-sm rounded-full overflow-hidden transition-transform hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.3)]"
                         >
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out"></div>
@@ -133,128 +174,110 @@ const App = () => {
             
             {/* Version Text */}
             <div className="absolute bottom-4 left-0 w-full text-center">
-                <span className="text-[9px] text-neutral-700 font-mono">v1.0.0 Stable // ViictorN</span>
+                <span className="text-[9px] text-neutral-700 font-mono">v1.3.0 // ViictorN</span>
             </div>
         </div>
     );
   }
 
+  // Calculate dynamic width for main content
+  // FIX: Chat visibility is now independent of Cinema Mode visually, 
+  // although cinema mode auto-closes it on toggle.
+  const effectiveChatWidth = (isChatOpen && !isMobile) ? settings.chatWidth : 0;
+  
+  const contentStyle = {
+      marginRight: !isMobile ? `${effectiveChatWidth}px` : 0
+  };
+
   return (
     <div className="h-[100dvh] bg-transparent text-white font-sans selection:bg-white/20 overflow-hidden flex flex-col">
       
+      {/* Ambient Background (Controlled via Settings) */}
+      {!settings.performanceMode && !settings.cinemaMode && (
+          <div className="fixed inset-0 z-[-2] pointer-events-none bg-[radial-gradient(circle_at_50%_50%,#1a1a1a_0%,#000000_100%)]">
+             <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-purple-900/20 rounded-full blur-[100px] animate-blob mix-blend-screen"></div>
+             <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-red-900/20 rounded-full blur-[100px] animate-blob mix-blend-screen" style={{ animationDelay: '2s' }}></div>
+             <div className="absolute top-[40%] left-[40%] w-[40vw] h-[40vw] bg-green-900/10 rounded-full blur-[80px] animate-blob mix-blend-screen" style={{ animationDelay: '4s' }}></div>
+          </div>
+      )}
+
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col md:flex-row relative z-10">
         
         {/* Stream Grid Area */}
-        <div className={`
-            flex-1 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]
-            ${isChatOpen && !isMobile ? 'md:mr-[420px]' : ''} 
-            ${!isMobile && layoutMode === 'grid' && !expandedStreamerId
-                ? 'grid grid-cols-2 grid-rows-[60%_40%]' // Grid Mode
-                : 'flex flex-col md:flex-row' // Columns or Expanded
-            }
-        `}>
-          {STREAMERS.map((streamer, index) => {
-            // Determine visibility based on Expanded State
-            const isThisExpanded = expandedStreamerId === streamer.id;
-            const isOtherExpanded = expandedStreamerId !== null && !isThisExpanded;
+        <div 
+            className="flex-1 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]"
+            style={contentStyle}
+        >
+          <div className={`
+             w-full h-full
+             ${!isMobile && layoutMode === 'grid' && !expandedStreamerId
+                ? 'grid grid-cols-2 grid-rows-[60%_40%]' 
+                : 'flex flex-col md:flex-row' 
+             }
+          `}>
+            {STREAMERS.map((streamer, index) => {
+                const isThisExpanded = expandedStreamerId === streamer.id;
+                const isOtherExpanded = expandedStreamerId !== null && !isThisExpanded;
 
-            // If mobile, we stack them. If expanded, we hide others.
-            if (isOtherExpanded) return null;
+                if (isOtherExpanded) return null;
 
-            let gridClasses = '';
-            
-            // Layout Logic
-            if (expandedStreamerId) {
-                // Fullscreen Mode
-                gridClasses = 'flex-1 w-full h-full'; 
-            } else if (!isMobile && layoutMode === 'grid') {
-                // Grid Mode
-                if (index === 0) {
-                    gridClasses = 'col-span-2 row-span-1 border-b border-white/5'; 
-                } else if (index === 1) {
-                    gridClasses = 'col-span-1 row-span-1 border-r border-white/5'; 
+                let gridClasses = '';
+                if (expandedStreamerId) {
+                    gridClasses = 'flex-1 w-full h-full'; 
+                } else if (!isMobile && layoutMode === 'grid') {
+                    if (index === 0) gridClasses = 'col-span-2 row-span-1 border-b border-white/5'; 
+                    else if (index === 1) gridClasses = 'col-span-1 row-span-1 border-r border-white/5'; 
+                    else gridClasses = 'col-span-1 row-span-1'; 
                 } else {
-                    gridClasses = 'col-span-1 row-span-1'; 
+                    gridClasses = 'flex-1 relative border-b border-white/5 md:border-b-0 md:border-r border-white/5 last:border-0';
                 }
-            } else {
-                // Columns (Desktop) or Stack (Mobile)
-                gridClasses = 'flex-1 relative border-b border-white/5 md:border-b-0 md:border-r border-white/5 last:border-0';
-            }
 
-            return (
-              <motion.div 
-                key={streamer.id} 
-                layout 
-                className={`relative overflow-hidden bg-black ${gridClasses}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-              >
-                 <StreamSlot 
-                   streamer={streamer}
-                   currentPlatform={streamerStates[streamer.id]}
-                   onPlatformChange={(p) => handlePlatformChange(streamer.id, p)}
-                   isExpanded={isThisExpanded}
-                   onToggleExpand={() => toggleExpand(streamer.id)}
-                   isOtherExpanded={false}
-                 />
-              </motion.div>
-            );
-          })}
+                return (
+                <motion.div 
+                    key={streamer.id} 
+                    layout 
+                    className={`relative overflow-hidden bg-black ${gridClasses} ${settings.cinemaMode ? 'border-none' : ''}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <StreamSlot 
+                    streamer={streamer}
+                    currentPlatform={streamerStates[streamer.id]}
+                    onPlatformChange={(p) => handlePlatformChange(streamer.id, p)}
+                    isExpanded={isThisExpanded}
+                    onToggleExpand={() => toggleExpand(streamer.id)}
+                    isOtherExpanded={false}
+                    isCinemaMode={settings.cinemaMode}
+                    refreshKeyTrigger={globalRefreshKey}
+                    />
+                </motion.div>
+                );
+            })}
+          </div>
         </div>
 
-        {/* Floating Controls (Bottom Right) */}
-        <AnimatePresence>
-            <motion.div 
-                className="fixed bottom-6 right-6 z-[60] flex flex-col gap-3 items-center"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 1 }}
-            >
-                {/* Layout Toggle (Hidden if expanded or mobile) */}
-                {!isMobile && !expandedStreamerId && (
-                  <motion.button
-                    initial={{ scale: 0.8 }}
-                    animate={{ scale: 1 }}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={toggleLayout}
-                    className="w-10 h-10 flex items-center justify-center bg-black/40 backdrop-blur-xl border border-white/10 text-white rounded-full shadow-lg hover:bg-white/10 hover:border-white/30 transition-all group"
-                    title={layoutMode === 'grid' ? "Voltar para Colunas" : "Modo Grade"}
-                  >
-                    {layoutMode === 'grid' ? (
-                       <svg className="opacity-70 group-hover:opacity-100" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><line x1="15" x2="15" y1="3" y2="21"/></svg>
-                    ) : (
-                       <svg className="opacity-70 group-hover:opacity-100" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 14h18"/><path d="M12 14v7"/></svg>
-                    )}
-                  </motion.button>
-                )}
-
-                {/* Chat Toggle Button */}
-                <motion.button
-                    initial={{ scale: 0.8 }}
-                    animate={{ scale: 1 }}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={toggleChat}
-                    className={`
-                      w-12 h-12 flex items-center justify-center rounded-full shadow-[0_0_30px_rgba(0,0,0,0.5)] transition-all border
-                      ${isChatOpen 
-                        ? 'bg-white border-white text-black' 
-                        : 'bg-black/40 border-white/10 backdrop-blur-xl text-white hover:bg-white/10 hover:border-white/30'}
-                    `}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
-                </motion.button>
-            </motion.div>
-        </AnimatePresence>
+        {/* Central Control Dock */}
+        <ControlDock 
+            settings={settings}
+            onUpdateSettings={handleSettingsUpdate}
+            layoutMode={layoutMode}
+            onToggleLayout={toggleLayout}
+            isChatOpen={isChatOpen}
+            onToggleChat={toggleChat}
+            onResetLayout={handleResetLayout}
+            onRefreshAll={handleRefreshAll}
+            isMobile={isMobile}
+        />
 
         {/* Chat Sidebar */}
         <MultiChat 
             activeStreamers={streamerStates}
             isOpen={isChatOpen}
             onClose={toggleChat}
+            width={isMobile ? window.innerWidth : settings.chatWidth}
+            onResize={(w) => setSettings(s => ({ ...s, chatWidth: w }))}
         />
 
       </main>
