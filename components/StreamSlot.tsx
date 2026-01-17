@@ -36,19 +36,26 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
   const embedUrl = useMemo(() => {
     if (!channelId) return '';
 
-    let twitchParentParams = '';
+    // Robust Parent Logic for Twitch
+    // We create a Set of domains to prevent duplicates and ensure all valid parents are present.
+    const domains = new Set<string>();
+    
+    // 1. Always allow the known production domain
+    domains.add('viictornmultistream.vercel.app');
+    
+    // 2. Add current hostname if available
     if (hostname) {
-       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-           twitchParentParams = `parent=localhost&parent=127.0.0.1`;
-       } else {
-           const rootDomain = hostname.replace(/^www\./, '');
-           twitchParentParams = `parent=${rootDomain}&parent=www.${rootDomain}`;
-           
-           if (hostname !== rootDomain && hostname !== `www.${rootDomain}`) {
-               twitchParentParams += `&parent=${hostname}`;
-           }
-       }
+        domains.add(hostname);
+        // Add variations (root vs www) to be safe
+        const root = hostname.replace(/^www\./, '');
+        domains.add(root);
+        domains.add(`www.${root}`);
     }
+
+    // 3. Construct the parameter string
+    const twitchParentParams = Array.from(domains)
+        .map(d => `parent=${d}`)
+        .join('&');
 
     switch (currentPlatform) {
       case Platform.Twitch:
@@ -65,8 +72,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
   return (
     <div className="relative w-full h-full bg-black overflow-hidden group">
       
-      {/* 1. LAYER 0: IFRAME - DIRECT HIT TARGET */}
-      {/* No container wrapping this unless necessary. Absolute inset-0 ensures it fills space. */}
+      {/* 1. LAYER 0: IFRAME */}
       <div className="absolute inset-0 z-0 bg-black">
          {channelId ? (
             <iframe
@@ -74,10 +80,13 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
               src={embedUrl}
               title={`${streamer.name} - ${currentPlatform}`}
               className="w-full h-full border-none"
-              style={{ pointerEvents: 'auto' }} // Explicitly allow clicks
-              referrerPolicy="no-referrer" // Loosest policy to avoid origin checks blocking
+              style={{ pointerEvents: 'auto' }} 
+              // CRITICAL FIX: "no-referrer" breaks Twitch parent verification. 
+              // "strict-origin-when-cross-origin" is the required standard.
+              referrerPolicy="strict-origin-when-cross-origin" 
               allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              // Added storage-access permissions which are often required for playback to start
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; allow-storage-access-by-user-activation"
             />
          ) : (
            <div className="flex flex-col items-center justify-center w-full h-full text-white/10 select-none">
@@ -87,17 +96,12 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
          )}
       </div>
 
-      {/* 
-          2. INDEPENDENT UI ELEMENTS (Z-10)
-          CRITICAL FIX: Removed the <div className="absolute inset-0 z-10"> wrapper.
-          By positioning these elements individually, we ensure the center of the screen
-          (where the Play button lives) is COMPLETELY free of DOM nodes.
-      */}
+      {/* 2. INDEPENDENT UI ELEMENTS (Z-10) */}
 
       {/* TOP LEFT: Badge */}
-      <div className="absolute top-4 left-4 z-10">
+      <div className="absolute top-4 left-4 z-10 pointer-events-none">
         <div className={`
-          cursor-default select-none
+          pointer-events-auto cursor-default select-none
           px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded shadow-lg backdrop-blur-md border border-white/5
           ${currentPlatform === Platform.Twitch ? 'bg-twitch text-white' : ''}
           ${currentPlatform === Platform.YouTube ? 'bg-youtube text-white' : ''}
@@ -108,11 +112,11 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
       </div>
 
       {/* TOP RIGHT: Controls */}
-      <div className="absolute top-4 right-4 z-10 flex gap-2">
+      <div className="absolute top-4 right-4 z-10 flex gap-2 pointer-events-none">
         {/* Reload Button */}
         <button
             onClick={handleReload}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-colors pointer-events-auto"
+            className="pointer-events-auto w-8 h-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
             title="Recarregar Player"
         >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
@@ -125,8 +129,9 @@ const StreamSlot: React.FC<StreamSlotProps> = ({ streamer, currentPlatform, onPl
                 setShowControls(prev => !prev);
             }}
             className={`
+                pointer-events-auto
                 w-8 h-8 flex items-center justify-center rounded-full
-                transition-all duration-200 cursor-pointer pointer-events-auto
+                transition-all duration-200 cursor-pointer
                 ${showControls 
                     ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.3)]' 
                     : 'bg-black/40 backdrop-blur-md border border-white/10 text-white/70 hover:bg-white/10 hover:text-white'

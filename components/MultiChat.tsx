@@ -21,11 +21,16 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
   });
 
   const getChatUrl = (streamer: StreamerConfig, platform: Platform) => {
+    // Robust Parent Logic matching StreamSlot
     const domains = new Set<string>();
     domains.add('viictornmultistream.vercel.app');
-    domains.add('www.viictornmultistream.vercel.app');
     
-    if (hostname) domains.add(hostname);
+    if (hostname) {
+        domains.add(hostname);
+        const root = hostname.replace(/^www\./, '');
+        domains.add(root);
+        domains.add(`www.${root}`);
+    }
 
     const parentParams = Array.from(domains).map(d => `parent=${d}`).join('&');
 
@@ -179,6 +184,7 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
                            className="w-full h-full border-none block" 
                            title={`${streamer.name} Chat`}
                            loading="lazy"
+                           referrerPolicy="strict-origin-when-cross-origin"
                            // No sandbox
                          />
                        )}
@@ -217,6 +223,7 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose 
                             className="w-full h-full border-none" 
                             title="Chat" 
                             loading="lazy" 
+                            referrerPolicy="strict-origin-when-cross-origin"
                         />;
              })()}
            </div>
