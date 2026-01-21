@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { STREAMERS } from './constants';
 import { Platform, AppSettings } from './types';
@@ -19,10 +19,17 @@ const App = () => {
   const [streamerStates, setStreamerStates] = useLocalStorage<Record<string, Platform>>('multi_viictorn_v7', defaultState);
   const [layoutMode, setLayoutMode] = useLocalStorage<LayoutMode>('layout_mode_v2', 'columns');
   
+  // Track visibility
+  const [visibleStreamers, setVisibleStreamers] = useLocalStorage<string[]>('visible_streamers_v2', STREAMERS.map(s => s.id));
+
+  // Track Order of Streamers (IDs)
+  const [streamerOrder, setStreamerOrder] = useLocalStorage<string[]>('streamer_order_v1', STREAMERS.map(s => s.id));
+
   // Settings Store
-  const [settings, setSettings] = useLocalStorage<AppSettings>('multi_settings_v2', {
+  const [settings, setSettings] = useLocalStorage<AppSettings>('multi_settings_v3', {
       performanceMode: false,
       cinemaMode: false,
+      streamsVisible: true,
       chatWidth: 420
   });
 
@@ -31,6 +38,11 @@ const App = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [expandedStreamerId, setExpandedStreamerId] = useState<string | null>(null);
   const [globalRefreshKey, setGlobalRefreshKey] = useState(0);
+  
+  // Drag and Drop State
+  const [isDragging, setIsDragging] = useState(false);
+  const dragItem = useRef<number | null>(null);
+  const dragOverItem = useRef<number | null>(null);
   
   // Welcome Screen State
   const [hasEntered, setHasEntered] = useState(false);
@@ -46,7 +58,8 @@ const App = () => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      if (mobile) setIsChatOpen(false);
+      // Only auto-close chat on initial load for mobile, don't force it continuously
+      if (mobile && !hasEntered) setIsChatOpen(false);
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -66,7 +79,7 @@ const App = () => {
         window.removeEventListener('resize', checkMobile);
         clearInterval(interval);
     };
-  }, []);
+  }, [hasEntered]);
 
   const handleEnter = () => {
       setHasEntered(true);
@@ -80,17 +93,46 @@ const App = () => {
     }));
   };
 
-  const toggleChat = () => setIsChatOpen(prev => !prev);
+  // UPDATED: Toggle Chat logic to conflict-resolve with Cinema Mode
+  const toggleChat = () => {
+      setIsChatOpen(prev => {
+          const willBeOpen = !prev;
+          // If we are opening the chat, we MUST disable Cinema Mode if it's on
+          if (willBeOpen && settings.cinemaMode) {
+              setSettings(s => ({ ...s, cinemaMode: false }));
+          }
+          return willBeOpen;
+      });
+  };
+
   const toggleLayout = () => setLayoutMode(prev => prev === 'columns' ? 'grid' : 'columns');
 
   const toggleExpand = (id: string) => {
     setExpandedStreamerId(prev => prev === id ? null : id);
   };
+  
+  const toggleStreamerVisibility = (id: string) => {
+      setVisibleStreamers(prev => {
+          if (prev.includes(id)) {
+              return prev.filter(s => s !== id);
+          } else {
+              return [...prev, id];
+          }
+      });
+  };
 
   const handleResetLayout = () => {
-      setSettings(prev => ({ ...prev, chatWidth: 420, performanceMode: false, cinemaMode: false }));
+      setSettings(prev => ({ 
+          ...prev, 
+          chatWidth: 420, 
+          performanceMode: false, 
+          cinemaMode: false,
+          streamsVisible: true 
+        }));
       setLayoutMode('columns');
       setStreamerStates(defaultState);
+      setVisibleStreamers(STREAMERS.map(s => s.id));
+      setStreamerOrder(STREAMERS.map(s => s.id));
       setIsChatOpen(true);
   };
 
@@ -99,13 +141,61 @@ const App = () => {
   };
 
   const handleSettingsUpdate = (newSettings: Partial<AppSettings>) => {
-      // Logic side-effect: If enabling Cinema Mode, auto-close chat for immersion.
-      // But we don't lock it closed (user can reopen).
+      // If turning ON Cinema Mode, force Chat CLOSE
       if (newSettings.cinemaMode === true) {
           setIsChatOpen(false);
       }
-      
       setSettings(prev => ({ ...prev, ...newSettings }));
+  };
+
+  // --- Reordering Logic ---
+  
+  // 1. Button-based reordering (Works perfectly on mobile/menu)
+  const handleMoveStreamer = (id: string, direction: 'up' | 'down') => {
+    const currentIndex = streamerOrder.indexOf(id);
+    if (currentIndex === -1) return;
+    
+    const newOrder = [...streamerOrder];
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    
+    // Bounds check
+    if (targetIndex < 0 || targetIndex >= newOrder.length) return;
+    
+    // Swap
+    [newOrder[currentIndex], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[currentIndex]];
+    setStreamerOrder(newOrder);
+  };
+
+  // 2. Drag and Drop handlers (Desktop mainly)
+  const onDragStart = (e: React.DragEvent<HTMLDivElement>, position: number) => {
+    dragItem.current = position;
+    setIsDragging(true);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onDragEnter = (e: React.DragEvent<HTMLDivElement>, position: number) => {
+    dragOverItem.current = position;
+    e.preventDefault(); 
+  };
+  
+  const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault(); 
+  };
+
+  const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const copyListItems = [...streamerOrder];
+    
+    if (dragItem.current !== null && dragOverItem.current !== null && dragItem.current !== dragOverItem.current) {
+        const dragItemContent = copyListItems[dragItem.current];
+        copyListItems.splice(dragItem.current, 1);
+        copyListItems.splice(dragOverItem.current, 0, dragItemContent);
+        setStreamerOrder(copyListItems);
+    }
+    
+    dragItem.current = null;
+    dragOverItem.current = null;
+    setIsDragging(false);
   };
 
   // --- WELCOME SCREEN COMPONENT ---
@@ -174,25 +264,57 @@ const App = () => {
             
             {/* Version Text */}
             <div className="absolute bottom-4 left-0 w-full text-center">
-                <span className="text-[9px] text-neutral-700 font-mono">v1.3.0 // ViictorN</span>
+                <span className="text-[9px] text-neutral-700 font-mono">v1.8.0 // ViictorN</span>
             </div>
         </div>
     );
   }
 
-  // Calculate dynamic width for main content
-  // FIX: Chat visibility is now independent of Cinema Mode visually, 
-  // although cinema mode auto-closes it on toggle.
-  const effectiveChatWidth = (isChatOpen && !isMobile) ? settings.chatWidth : 0;
+  // Determine Layout Widths
+  const areStreamsVisible = settings.streamsVisible;
   
+  // FIXED: Logic for Mobile Chat Width. If Mobile, use Full Width (window.innerWidth), otherwise use settings or 0.
+  const currentChatWidth = (!areStreamsVisible) 
+      ? (typeof window !== 'undefined' ? window.innerWidth : 1000) 
+      : (isChatOpen 
+          ? (isMobile ? (typeof window !== 'undefined' ? window.innerWidth : 400) : settings.chatWidth) 
+          : 0);
+
   const contentStyle = {
-      marginRight: !isMobile ? `${effectiveChatWidth}px` : 0
+      marginRight: !isMobile ? `${currentChatWidth}px` : 0
+  };
+  
+  // Calculate active layout
+  const visibleCount = visibleStreamers.length;
+  
+  const getGridClasses = (indexInVisible: number, totalVisible: number) => {
+      if (expandedStreamerId) return 'flex-1 w-full h-full';
+
+      // 1 Visible: Full Screen
+      if (totalVisible === 1) return 'flex-1 w-full h-full';
+      
+      // 2 Visible: Split (Clean 50/50 split)
+      if (totalVisible === 2) {
+          return 'flex-1 border-b md:border-b-0 md:border-r border-white/5 last:border-0';
+      }
+
+      // 3 Visible (Standard Grid or Columns)
+      if (totalVisible >= 3) {
+          if (layoutMode === 'grid') { // REMOVED !isMobile CHECK
+            if (indexInVisible === 0) return 'col-span-2 row-span-1 border-b border-white/5'; 
+            else if (indexInVisible === 1) return 'col-span-1 row-span-1 border-r border-white/5'; 
+            else return 'col-span-1 row-span-1'; 
+          } else {
+             return 'flex-1 relative border-b border-white/5 md:border-b-0 md:border-r border-white/5 last:border-0';
+          }
+      }
+      return 'flex-1';
   };
 
   return (
     <div className="h-[100dvh] bg-transparent text-white font-sans selection:bg-white/20 overflow-hidden flex flex-col">
       
-      {/* Ambient Background (Controlled via Settings) */}
+      {/* Ambient Background */}
       {!settings.performanceMode && !settings.cinemaMode && (
           <div className="fixed inset-0 z-[-2] pointer-events-none bg-[radial-gradient(circle_at_50%_50%,#1a1a1a_0%,#000000_100%)]">
              <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-purple-900/20 rounded-full blur-[100px] animate-blob mix-blend-screen"></div>
@@ -209,53 +331,96 @@ const App = () => {
             className="flex-1 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]"
             style={contentStyle}
         >
-          <div className={`
-             w-full h-full
-             ${!isMobile && layoutMode === 'grid' && !expandedStreamerId
-                ? 'grid grid-cols-2 grid-rows-[60%_40%]' 
-                : 'flex flex-col md:flex-row' 
-             }
-          `}>
-            {STREAMERS.map((streamer, index) => {
-                const isThisExpanded = expandedStreamerId === streamer.id;
-                const isOtherExpanded = expandedStreamerId !== null && !isThisExpanded;
-
-                if (isOtherExpanded) return null;
-
-                let gridClasses = '';
-                if (expandedStreamerId) {
-                    gridClasses = 'flex-1 w-full h-full'; 
-                } else if (!isMobile && layoutMode === 'grid') {
-                    if (index === 0) gridClasses = 'col-span-2 row-span-1 border-b border-white/5'; 
-                    else if (index === 1) gridClasses = 'col-span-1 row-span-1 border-r border-white/5'; 
-                    else gridClasses = 'col-span-1 row-span-1'; 
-                } else {
-                    gridClasses = 'flex-1 relative border-b border-white/5 md:border-b-0 md:border-r border-white/5 last:border-0';
-                }
-
-                return (
+          <AnimatePresence mode="wait">
+            {areStreamsVisible && (
                 <motion.div 
-                    key={streamer.id} 
-                    layout 
-                    className={`relative overflow-hidden bg-black ${gridClasses} ${settings.cinemaMode ? 'border-none' : ''}`}
+                    key="stream-grid"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3 }}
+                    exit={{ opacity: 0 }}
+                    className={`
+                    w-full h-full
+                    ${layoutMode === 'grid' && !expandedStreamerId && visibleCount >= 3
+                        ? 'grid grid-cols-2 grid-rows-[60%_40%]' // REMOVED !isMobile CHECK
+                        : 'flex flex-col md:flex-row' 
+                    }
+                    `}
                 >
-                    <StreamSlot 
-                    streamer={streamer}
-                    currentPlatform={streamerStates[streamer.id]}
-                    onPlatformChange={(p) => handlePlatformChange(streamer.id, p)}
-                    isExpanded={isThisExpanded}
-                    onToggleExpand={() => toggleExpand(streamer.id)}
-                    isOtherExpanded={false}
-                    isCinemaMode={settings.cinemaMode}
-                    refreshKeyTrigger={globalRefreshKey}
-                    />
+                    {visibleCount === 0 ? (
+                        <div className="flex flex-col items-center justify-center w-full h-full text-neutral-500">
+                            <span className="text-2xl font-bold uppercase mb-2">Sem Players Visíveis</span>
+                            <span className="text-xs">Use o menu lateral para ativar os streamers.</span>
+                        </div>
+                    ) : (
+                        // We iterate through streamerOrder to respect the user's custom order
+                        streamerOrder.map((streamerId, index) => {
+                            const streamer = STREAMERS.find(s => s.id === streamerId);
+                            if (!streamer) return null;
+
+                            // Only render if visible or if it's the expanded one (force show)
+                            if (!visibleStreamers.includes(streamer.id) && expandedStreamerId !== streamer.id) return null;
+
+                            const isThisExpanded = expandedStreamerId === streamer.id;
+                            const isOtherExpanded = expandedStreamerId !== null && !isThisExpanded;
+
+                            if (isOtherExpanded) return null;
+
+                            // Calculate index relative to *visible* items for grid styling
+                            const currentVisibleOrder = streamerOrder.filter(id => visibleStreamers.includes(id));
+                            const indexInVisible = currentVisibleOrder.indexOf(streamer.id);
+                            
+                            const gridClasses = getGridClasses(indexInVisible, visibleCount);
+
+                            return (
+                                <motion.div 
+                                    key={streamer.id} 
+                                    layout 
+                                    // Make draggable (Desktop)
+                                    draggable={!isMobile && !expandedStreamerId} 
+                                    onDragStart={(e) => onDragStart(e as unknown as React.DragEvent<HTMLDivElement>, index)}
+                                    onDragEnter={(e) => onDragEnter(e as unknown as React.DragEvent<HTMLDivElement>, index)}
+                                    onDragOver={onDragOver}
+                                    onDrop={onDrop}
+                                    
+                                    className={`relative overflow-hidden bg-black ${gridClasses} ${settings.cinemaMode ? 'border-none' : ''}`}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    transition={{ duration: 0.3 }}
+                                    style={{
+                                        // Highlight drop target or currently dragged item
+                                        opacity: isDragging && dragItem.current === index ? 0.4 : 1,
+                                        zIndex: isDragging && dragItem.current === index ? 50 : 1,
+                                        cursor: isDragging ? 'grabbing' : 'auto'
+                                    }}
+                                >
+                                    <StreamSlot 
+                                        streamer={streamer}
+                                        currentPlatform={streamerStates[streamer.id]}
+                                        onPlatformChange={(p) => handlePlatformChange(streamer.id, p)}
+                                        isExpanded={isThisExpanded}
+                                        onToggleExpand={() => toggleExpand(streamer.id)}
+                                        isOtherExpanded={false}
+                                        isCinemaMode={settings.cinemaMode}
+                                        refreshKeyTrigger={globalRefreshKey}
+                                        onHide={() => toggleStreamerVisibility(streamer.id)}
+                                        isDragging={isDragging} 
+                                    />
+                                </motion.div>
+                            );
+                        })
+                    )}
                 </motion.div>
-                );
-            })}
-          </div>
+            )}
+          </AnimatePresence>
+          
+          {!areStreamsVisible && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="flex flex-col items-center opacity-20">
+                      <span className="text-4xl font-black uppercase tracking-widest">Modo Chat</span>
+                  </div>
+              </div>
+          )}
         </div>
 
         {/* Central Control Dock */}
@@ -269,15 +434,21 @@ const App = () => {
             onResetLayout={handleResetLayout}
             onRefreshAll={handleRefreshAll}
             isMobile={isMobile}
+            visibleStreamers={visibleStreamers}
+            onToggleStreamerVisibility={toggleStreamerVisibility}
+            onResetOrder={() => setStreamerOrder(STREAMERS.map(s => s.id))}
+            streamerOrder={streamerOrder}
+            onMoveStreamer={handleMoveStreamer}
         />
 
         {/* Chat Sidebar */}
         <MultiChat 
             activeStreamers={streamerStates}
-            isOpen={isChatOpen}
+            isOpen={isChatOpen || !areStreamsVisible}
             onClose={toggleChat}
-            width={isMobile ? window.innerWidth : settings.chatWidth}
+            width={currentChatWidth}
             onResize={(w) => setSettings(s => ({ ...s, chatWidth: w }))}
+            disableResize={!areStreamsVisible}
         />
 
       </main>

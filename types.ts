@@ -23,6 +23,7 @@ export interface StreamState {
 export interface AppSettings {
   performanceMode: boolean; // Disables ambient animations
   cinemaMode: boolean; // Dims UI and hides chat
+  streamsVisible: boolean; // Toggles the video player area
   chatWidth: number;
 }
 

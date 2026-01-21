@@ -60,7 +60,7 @@ export const STREAMERS: StreamerConfig[] = [
     color: '#FF0000', // YouTube red dominant
     channels: {
       [Platform.Twitch]: 'loud_coringa',
-      [Platform.YouTube]: 'UChc6C0847V_X9N9vJtW7W8w', // ID do Canal LOUD Coringa
+      [Platform.YouTube]: 'ZB6cQsbnONM', // IRL DIA 1
       [Platform.Kick]: 'coringa',
     },
   },
@@ -73,7 +73,7 @@ export const STREAMERS: StreamerConfig[] = [
     channels: {
       [Platform.Twitch]: 'loud_brabox', 
       [Platform.Kick]: 'brabox',
-      [Platform.YouTube]: 'UCw7e1l-Wfqc9G-D_9fV1-zA', // ID do Canal LOUD Brabox
+      [Platform.YouTube]: 'ZEdX11lU6Vs', // IRL DIA 1
     },
   },
 ];
