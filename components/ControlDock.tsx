@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppSettings } from '../types';
 import { STREAMERS } from '../constants';
@@ -39,6 +39,8 @@ const ControlDock: React.FC<ControlDockProps> = ({
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showPlayersMenu, setShowPlayersMenu] = useState(false);
+  const [isUIActive, setIsUIActive] = useState(true);
+  const activityTimerRef = useRef<number | null>(null);
 
   // Auto-expand on mount for 5 seconds to show user the controls exist
   useEffect(() => {
@@ -47,6 +49,33 @@ const ControlDock: React.FC<ControlDockProps> = ({
         setIsExpanded(false);
     }, 5000);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Global Activity Monitor for fading the dock
+  useEffect(() => {
+      const handleGlobalActivity = () => {
+          setIsUIActive(true);
+          if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
+          activityTimerRef.current = setTimeout(() => {
+              setIsUIActive(false);
+          }, 5000);
+      };
+
+      window.addEventListener('mousemove', handleGlobalActivity);
+      window.addEventListener('click', handleGlobalActivity);
+      window.addEventListener('keydown', handleGlobalActivity);
+      window.addEventListener('touchstart', handleGlobalActivity);
+
+      // Trigger once on mount
+      handleGlobalActivity();
+
+      return () => {
+          window.removeEventListener('mousemove', handleGlobalActivity);
+          window.removeEventListener('click', handleGlobalActivity);
+          window.removeEventListener('keydown', handleGlobalActivity);
+          window.removeEventListener('touchstart', handleGlobalActivity);
+          if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
+      };
   }, []);
 
   const dockItems = [
@@ -121,15 +150,20 @@ const ControlDock: React.FC<ControlDockProps> = ({
       {/* Retractable Container */}
       <motion.div 
         layout
-        className="flex flex-col items-center gap-2 p-1.5 bg-black/80 backdrop-blur-2xl border border-white/10 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.8)] pointer-events-auto"
+        // Add opacity transition based on activity or expansion state
+        className={`
+          flex flex-col items-center gap-2 p-1.5 bg-black/80 backdrop-blur-2xl border border-white/10 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.8)] pointer-events-auto transition-opacity duration-500
+          ${(isExpanded || isUIActive) ? 'opacity-100' : 'opacity-30 hover:opacity-100'}
+        `}
         initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        animate={{ opacity: (isExpanded || isUIActive) ? 1 : 0.3, x: 0 }}
+        transition={{ opacity: { duration: 0.5 }, x: { type: "spring", stiffness: 300, damping: 30 } }}
+        style={{ borderRadius: '9999px' }}
       >
         {/* Toggle Button (Always Visible) with Tooltip */}
         <div className="relative group">
             <AnimatePresence>
-                {hoveredButton === 'main-toggle' && (
+                {hoveredButton === 'main-toggle' && isUIActive && (
                     <motion.div
                         initial={{ opacity: 0, x: 10, scale: 0.9 }}
                         animate={{ opacity: 1, x: -10, scale: 1 }}
@@ -145,6 +179,7 @@ const ControlDock: React.FC<ControlDockProps> = ({
             </AnimatePresence>
             <motion.button
                 layout
+                style={{ borderRadius: '50%' }}
                 onClick={() => setIsExpanded(!isExpanded)}
                 onMouseEnter={() => setHoveredButton('main-toggle')}
                 onMouseLeave={() => setHoveredButton(null)}
@@ -179,7 +214,7 @@ const ControlDock: React.FC<ControlDockProps> = ({
                         <div key={item.id} className="relative group first:mt-2">
                              {/* Tooltip */}
                              <AnimatePresence>
-                                {hoveredButton === item.id && (
+                                {hoveredButton === item.id && isUIActive && (
                                     <motion.div
                                         initial={{ opacity: 0, x: 10, scale: 0.9 }}
                                         animate={{ opacity: 1, x: -10, scale: 1 }}
@@ -296,6 +331,7 @@ const ControlDock: React.FC<ControlDockProps> = ({
 
                             <motion.button
                                 layout
+                                style={{ borderRadius: '50%' }}
                                 onClick={() => item.action()}
                                 onMouseEnter={() => setHoveredButton(item.id)}
                                 onMouseLeave={() => setHoveredButton(null)}

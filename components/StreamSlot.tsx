@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StreamerConfig, Platform } from '../types';
 import PlatformSelector from './PlatformSelector';
@@ -29,10 +29,14 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
   isDragging
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [isUserActive, setIsUserActive] = useState(false);
   const [showSelector, setShowSelector] = useState(false);
   const [localRefreshKey, setLocalRefreshKey] = useState(0); 
   const [isLoading, setIsLoading] = useState(true);
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+  const activityTimerRef = useRef<number | null>(null);
 
   // Combine global and local refresh keys
   const effectiveRefreshKey = refreshKeyTrigger + localRefreshKey;
@@ -45,6 +49,34 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
     const timer = setTimeout(() => setIsLoading(false), 5000);
     return () => clearTimeout(timer);
   }, [currentPlatform, effectiveRefreshKey]);
+
+  // Handle local activity (mouse movement inside the slot)
+  useEffect(() => {
+    const handleActivity = () => {
+        setIsUserActive(true);
+        if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
+        activityTimerRef.current = setTimeout(() => {
+            setIsUserActive(false);
+            setShowSelector(false); // Also close selector on inactivity
+        }, 5000);
+    };
+
+    const element = containerRef.current;
+    if (element) {
+        element.addEventListener('mousemove', handleActivity);
+        element.addEventListener('click', handleActivity);
+        element.addEventListener('touchstart', handleActivity);
+    }
+
+    return () => {
+        if (element) {
+            element.removeEventListener('mousemove', handleActivity);
+            element.removeEventListener('click', handleActivity);
+            element.removeEventListener('touchstart', handleActivity);
+        }
+        if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
+    };
+  }, []);
 
   const rawChannelId = streamer.channels[currentPlatform];
   const channelId = rawChannelId ? rawChannelId.trim() : '';
@@ -118,10 +150,15 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
 
   if (isOtherExpanded) return null;
 
+  // Logic to show controls: Must be hovered AND user must be active (moved mouse recently)
+  // EXCEPT if showSelector is open (keep it open while interacting)
+  const showControls = (isHovered && isUserActive) || showSelector;
+
   return (
     <div 
+      ref={containerRef}
       className="relative w-full h-full bg-black overflow-hidden group"
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={() => { setIsHovered(true); setIsUserActive(true); }}
       onMouseLeave={() => { setIsHovered(false); setShowSelector(false); setHoveredAction(null); }}
     >
       {/* 1. IFRAME LAYER */}
@@ -173,8 +210,8 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
       </div>
 
       {/* 2. STATUS LIGHT */}
-      {(!isLoading && hasValidChannel && (isHovered || !isCinemaMode) && !isDragging) && (
-         <div className="absolute top-4 right-4 z-10 pointer-events-none transition-opacity duration-300">
+      {(!isLoading && hasValidChannel && showControls && !isDragging) && (
+         <div className="absolute top-4 right-4 z-10 pointer-events-none transition-opacity duration-500">
              <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(255,0,0,0.8)] animate-pulse" />
          </div>
       )}
@@ -182,16 +219,16 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
       {/* 3. HUD LAYER */}
       <motion.div 
         initial={false}
-        animate={{ opacity: ((isCinemaMode && !isHovered && !showSelector) || isDragging) ? 0 : 1 }}
-        transition={{ duration: 0.3 }}
+        animate={{ opacity: ((isCinemaMode && !showControls) || isDragging || !showControls) ? 0 : 1 }}
+        transition={{ duration: 0.5 }}
         className="absolute inset-0 z-20 pointer-events-none"
         style={{
-            background: (isCinemaMode && !isHovered) ? 'transparent' : 'radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.4) 100%)'
+            background: (isCinemaMode && !showControls) ? 'transparent' : 'radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.4) 100%)'
         }}
       >
           {/* DRAG HANDLE (Top Left - Independent) */}
           <div 
-            className={`absolute top-0 left-0 p-4 pointer-events-auto cursor-grab active:cursor-grabbing text-white/30 hover:text-white transition-colors duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+            className={`absolute top-0 left-0 p-4 pointer-events-auto cursor-grab active:cursor-grabbing text-white/30 hover:text-white transition-colors duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}
             title="Arrastar para mover"
           >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -200,7 +237,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
           </div>
 
           {/* ACTIONS (Vertical Left - Centered) */}
-          <div className={`absolute top-1/2 left-4 -translate-y-1/2 flex flex-col gap-2 pointer-events-auto transition-all duration-300 z-30 ${isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}`}>
+          <div className={`absolute top-1/2 left-4 -translate-y-1/2 flex flex-col gap-2 pointer-events-auto transition-all duration-500 z-30 ${showControls ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}`}>
               
               {/* Hide Button */}
               <div className="relative">
@@ -311,7 +348,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
 
           {/* BOTTOM CENTER: Badge & Selector Container */}
           <div className="absolute bottom-4 left-0 w-full flex justify-center">
-              <div className={`relative pointer-events-auto transition-all duration-300 ${isHovered || showSelector ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+              <div className={`relative pointer-events-auto transition-all duration-500 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
                   {/* Dropdown Menu (Opens Upwards now) */}
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50">
                     <PlatformSelector 
