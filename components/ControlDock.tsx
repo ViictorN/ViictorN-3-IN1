@@ -116,7 +116,7 @@ const ControlDock: React.FC<ControlDockProps> = ({
   const visibleItems = dockItems;
 
   return (
-    <div className="fixed top-20 right-4 z-[60] pointer-events-none flex flex-col items-end gap-2">
+    <div className="fixed top-1/2 -translate-y-1/2 right-4 z-[60] pointer-events-none flex flex-col items-end gap-2">
       
       {/* Retractable Container */}
       <motion.div 
