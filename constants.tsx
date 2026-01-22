@@ -73,7 +73,7 @@ export const STREAMERS: StreamerConfig[] = [
     channels: {
       [Platform.Twitch]: 'loud_brabox', 
       [Platform.Kick]: 'brabox',
-      [Platform.YouTube]: 'ZEdX11lU6Vs', // IRL DIA 1
+      [Platform.YouTube]: 'wWQ4k0yLdoQ', // IRL DIA 2
     },
   },
 ];
