@@ -46,11 +46,12 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
 
   useEffect(() => {
     setIsLoading(true);
-    const timer = setTimeout(() => setIsLoading(false), 5000);
+    // Reduced timeout to 1.5s for a snappier feel, relying on iframe onLoad for true completion
+    const timer = setTimeout(() => setIsLoading(false), 1500);
     return () => clearTimeout(timer);
   }, [currentPlatform, effectiveRefreshKey]);
 
-  // Handle local activity (mouse movement inside the slot)
+  // Handle local activity (mouse movement inside the slot AND clicks)
   useEffect(() => {
     const handleActivity = () => {
         setIsUserActive(true);
@@ -61,12 +62,24 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
         }, 5000);
     };
 
+    // Detect click inside iframe via window blur
+    const handleWindowBlur = () => {
+      // Check if the currently active element is an iframe
+      if (document.activeElement instanceof HTMLIFrameElement) {
+         handleActivity();
+      }
+    };
+
     const element = containerRef.current;
     if (element) {
         element.addEventListener('mousemove', handleActivity);
+        // We handle click logic specifically in the HUD now, but general clicks wake it up too
         element.addEventListener('click', handleActivity);
         element.addEventListener('touchstart', handleActivity);
     }
+    
+    // Listen for focus loss (clicking into iframe)
+    window.addEventListener('blur', handleWindowBlur);
 
     return () => {
         if (element) {
@@ -74,6 +87,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
             element.removeEventListener('click', handleActivity);
             element.removeEventListener('touchstart', handleActivity);
         }
+        window.removeEventListener('blur', handleWindowBlur);
         if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
     };
   }, []);
@@ -103,6 +117,16 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
           case Platform.Kick: url = `https://kick.com/${channelId}`; break;
       }
       if (url) window.open(url, '_blank', 'width=1280,height=720');
+  };
+
+  // Explicitly hide UI when clicking the backdrop of the HUD
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    // Only trigger if clicking the HUD div itself, not its children (buttons)
+    if (e.target === e.currentTarget) {
+        e.stopPropagation();
+        setIsUserActive(false);
+        setShowSelector(false);
+    }
   };
 
   const embedUrl = useMemo(() => {
@@ -160,6 +184,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
       className="relative w-full h-full bg-black overflow-hidden group"
       onMouseEnter={() => { setIsHovered(true); setIsUserActive(true); }}
       onMouseLeave={() => { setIsHovered(false); setShowSelector(false); setHoveredAction(null); }}
+      onClick={() => setIsUserActive(true)} // Immediate feedback for container clicks (wakes up)
     >
       {/* 1. IFRAME LAYER */}
       <div 
@@ -182,18 +207,39 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
                 <AnimatePresence>
                   {isLoading && (
                       <motion.div 
-                        initial={{ opacity: 1 }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 flex items-center justify-center bg-black/90 backdrop-blur-xl z-10 pointer-events-none"
+                        transition={{ duration: 0.5 }}
+                        className="absolute inset-0 flex items-center justify-center bg-black/90 backdrop-blur-md z-10 pointer-events-none"
                       >
-                          <div className="flex flex-col items-center gap-4">
-                              <div className="relative">
-                                  <div className="w-12 h-12 border-4 border-white/5 rounded-full"></div>
-                                  <div className="absolute top-0 left-0 w-12 h-12 border-4 border-t-white rounded-full animate-spin shadow-[0_0_20px_rgba(255,255,255,0.5)]"></div>
+                          <div className="flex flex-col items-center gap-6">
+                              {/* Modern Spinner */}
+                              <div className="relative w-16 h-16">
+                                  {/* Outer Ring */}
+                                  <motion.span 
+                                    className="absolute inset-0 rounded-full border border-white/10"
+                                    animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.6, 0.3] }}
+                                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                  />
+                                  {/* Spinning Segment */}
+                                  <motion.span 
+                                    className="absolute inset-0 rounded-full border-2 border-t-white/80 border-r-transparent border-b-transparent border-l-transparent"
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                                  />
+                                  {/* Inner Core */}
+                                  <div className="absolute inset-0 m-auto w-2 h-2 bg-white rounded-full shadow-[0_0_10px_white]" />
                               </div>
-                              <span className="text-[10px] text-white/60 font-black tracking-[0.3em] uppercase animate-pulse">
-                                  Carregando
-                              </span>
+                              
+                              <motion.span 
+                                initial={{ opacity: 0.5 }}
+                                animate={{ opacity: [0.4, 1, 0.4] }}
+                                transition={{ duration: 1.5, repeat: Infinity }}
+                                className="text-[10px] text-white/80 font-black tracking-[0.4em] uppercase"
+                              >
+                                  Conectando
+                              </motion.span>
                           </div>
                       </motion.div>
                   )}
@@ -221,7 +267,11 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
         initial={false}
         animate={{ opacity: ((isCinemaMode && !showControls) || isDragging || !showControls) ? 0 : 1 }}
         transition={{ duration: 0.5 }}
-        className="absolute inset-0 z-20 pointer-events-none"
+        onClick={handleBackdropClick} // CLICK TO HIDE LOGIC
+        className={`
+            absolute inset-0 z-20 
+            ${showControls ? 'pointer-events-auto' : 'pointer-events-none'} 
+        `}
         style={{
             background: (isCinemaMode && !showControls) ? 'transparent' : 'radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.4) 100%)'
         }}
@@ -230,6 +280,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
           <div 
             className={`absolute top-0 left-0 p-4 pointer-events-auto cursor-grab active:cursor-grabbing text-white/30 hover:text-white transition-colors duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}
             title="Arrastar para mover"
+            onClick={(e) => e.stopPropagation()} // Prevent hiding when using drag handle
           >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M19 9l3 3-3 3M9 19l3 3 3-3M2 12h20M12 2v20" />
@@ -237,7 +288,10 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
           </div>
 
           {/* ACTIONS (Vertical Left - Centered) */}
-          <div className={`absolute top-1/2 left-4 -translate-y-1/2 flex flex-col gap-2 pointer-events-auto transition-all duration-500 z-30 ${showControls ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}`}>
+          <div 
+            className={`absolute top-1/2 left-4 -translate-y-1/2 flex flex-col gap-2 pointer-events-auto transition-all duration-500 z-30 ${showControls ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}`}
+            onClick={(e) => e.stopPropagation()} // Prevent hiding when clicking container area of buttons
+          >
               
               {/* Hide Button */}
               <div className="relative">
@@ -347,7 +401,10 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
           </div>
 
           {/* BOTTOM CENTER: Badge & Selector Container */}
-          <div className="absolute bottom-4 left-0 w-full flex justify-center">
+          <div 
+            className="absolute bottom-4 left-0 w-full flex justify-center"
+            onClick={(e) => e.stopPropagation()} // Prevent hiding when using selector
+          >
               <div className={`relative pointer-events-auto transition-all duration-500 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
                   {/* Dropdown Menu (Opens Upwards now) */}
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50">

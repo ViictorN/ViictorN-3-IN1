@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StreamerConfig, Platform } from '../types';
 import { STREAMERS, TwitchIcon, YouTubeIcon, KickIcon, CUSTOM_MERGED_CHAT_URL } from '../constants';
@@ -16,7 +16,36 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose,
   const [selectedStreamerId, setSelectedStreamerId] = useState<string>('all');
   const [isResizing, setIsResizing] = useState(false);
   
+  // State to store chat platform overrides (independent of video platform)
+  const [chatOverrides, setChatOverrides] = useState<Record<string, Platform>>({});
+  
+  // State for the mini dropdown selector
+  const [openSelectorId, setOpenSelectorId] = useState<string | null>(null);
+  const [selectorPos, setSelectorPos] = useState<{ top: number; left: number } | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && dropdownRef.current.contains(event.target as Node)) {
+        return;
+      }
+      setOpenSelectorId(null);
+    };
+    
+    const handleResize = () => setOpenSelectorId(null);
+
+    if (openSelectorId) {
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('resize', handleResize);
+    }
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        window.removeEventListener('resize', handleResize);
+    };
+  }, [openSelectorId]);
 
   // Resize Handlers
   const startResizing = useCallback(() => {
@@ -47,6 +76,11 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose,
     };
   }, [resize, stopResizing]);
 
+  // Helper to determine which platform to show for chat
+  const getChatPlatform = (streamerId: string) => {
+      // Return override if exists, otherwise active video platform, otherwise default
+      return chatOverrides[streamerId] || activeStreamers[streamerId] || Platform.Twitch;
+  };
 
   const getChatUrl = (streamer: StreamerConfig, platform: Platform) => {
     const parents = new Set<string>();
@@ -81,14 +115,26 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose,
     }
   };
 
-  const ChatIcon = ({ platform }: { platform: Platform }) => {
+  const ChatIcon = ({ platform, className }: { platform: Platform; className?: string }) => {
     switch(platform) {
-      case Platform.Twitch: return <TwitchIcon className="w-3 h-3" />;
-      case Platform.YouTube: return <YouTubeIcon className="w-3 h-3" />;
-      case Platform.Kick: return <KickIcon className="w-3 h-3" />;
+      case Platform.Twitch: return <TwitchIcon className={className || "w-3 h-3"} />;
+      case Platform.YouTube: return <YouTubeIcon className={className || "w-3 h-3"} />;
+      case Platform.Kick: return <KickIcon className={className || "w-3 h-3"} />;
       default: return null;
     }
   };
+
+  const getPlatformColor = (p: Platform) => {
+      switch(p) {
+          case Platform.Twitch: return '#9146FF';
+          case Platform.YouTube: return '#FF0000';
+          case Platform.Kick: return '#53FC18';
+          default: return '#ffffff';
+      }
+  };
+
+  // Find the streamer object for the currently open dropdown
+  const activeDropdownStreamer = STREAMERS.find(s => s.id === openSelectorId);
 
   return (
     <AnimatePresence>
@@ -115,17 +161,19 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose,
                 </div>
             )}
 
-            {/* HEADER AREA */}
-            <div className="flex flex-none h-14 bg-black border-b border-white/5 relative">
-                
+            {/* HEADER AREA - LIQUID GLASS EFFECT */}
+            <div className="flex flex-none h-14 relative z-20">
+                {/* Liquid Glass Background */}
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.2)]"></div>
+
                 {/* Scrollable Tabs Container */}
-                <div className="flex-1 flex items-end px-2 gap-1 overflow-x-auto no-scrollbar pr-12">
+                <div className="relative flex-1 flex items-end px-2 gap-1 overflow-x-auto no-scrollbar pr-12">
                     {/* MIX TAB */}
                     <button
                         onClick={() => setSelectedStreamerId('all')}
                         className={`
                             relative group flex flex-col items-center justify-center px-3 h-10 rounded-t-lg transition-all duration-300 flex-shrink-0
-                            ${selectedStreamerId === 'all' ? 'text-white' : 'text-neutral-600 hover:text-neutral-300'}
+                            ${selectedStreamerId === 'all' ? 'text-white' : 'text-neutral-500 hover:text-neutral-300'}
                         `}
                     >
                         <span className={`text-[11px] font-black uppercase tracking-widest z-10 transition-all ${selectedStreamerId === 'all' ? 'scale-105' : ''}`}>MIX</span>
@@ -150,53 +198,82 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose,
                     {/* INDIVIDUAL TABS */}
                     {STREAMERS.map((streamer) => {
                         const isActive = selectedStreamerId === streamer.id;
-                        const streamerPlatform = activeStreamers[streamer.id];
+                        const currentChatPlatform = getChatPlatform(streamer.id);
+                        const isSelectorOpen = openSelectorId === streamer.id;
                         
                         return (
-                            <button
-                                key={streamer.id}
-                                onClick={() => setSelectedStreamerId(streamer.id)}
-                                className={`
-                                    relative group flex items-center justify-center gap-2 px-3 h-10 rounded-t-lg transition-all duration-300 flex-shrink-0 min-w-[90px]
-                                    ${isActive ? 'text-white' : 'text-neutral-600 hover:text-neutral-300'}
-                                `}
-                            >
-                                <span className="text-[10px] font-bold uppercase truncate max-w-[80px] z-10">{streamer.name}</span>
-                                
-                                <div className={`transition-opacity duration-300 z-10 ${isActive ? 'opacity-100 text-white' : 'opacity-0 -translate-y-2'}`}>
-                                    <ChatIcon platform={streamerPlatform} />
-                                </div>
-                                
-                                {isActive && (
-                                    <>
-                                        <motion.div 
-                                            layoutId="activeTabBg"
-                                            className="absolute inset-0 rounded-t-lg opacity-20"
-                                            style={{ background: `linear-gradient(to top, ${streamer.color}, transparent)` }}
-                                        />
-                                        <motion.div 
-                                            layoutId="activeTabLine"
-                                            className="absolute bottom-0 left-0 right-0 h-[2px]"
-                                            style={{ 
-                                                backgroundColor: streamer.color,
-                                                boxShadow: `0 0 15px ${streamer.color}` 
-                                            }}
-                                        />
-                                    </>
-                                )}
-                            </button>
+                            <div key={streamer.id} className="relative flex-shrink-0">
+                                <button
+                                    onClick={() => setSelectedStreamerId(streamer.id)}
+                                    className={`
+                                        relative group flex items-center justify-center gap-2 px-3 h-10 rounded-t-lg transition-all duration-300 min-w-[90px]
+                                        ${isActive ? 'text-white' : 'text-neutral-500 hover:text-neutral-300'}
+                                    `}
+                                >
+                                    <span className="text-[10px] font-bold uppercase truncate max-w-[80px] z-10">{streamer.name}</span>
+                                    
+                                    {/* Platform Icon / Selector Trigger */}
+                                    <div 
+                                        className={`
+                                            relative z-10 flex items-center gap-1 transition-all duration-300 
+                                            ${isActive ? 'opacity-100 text-white pl-1 border-l border-white/10' : 'opacity-0 -translate-y-2 w-0 overflow-hidden'}
+                                        `}
+                                        onClick={(e) => {
+                                            if (isActive) {
+                                                e.stopPropagation();
+                                                if (isSelectorOpen) {
+                                                    setOpenSelectorId(null);
+                                                } else {
+                                                    // Calculate Fixed Position for Dropdown
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    setSelectorPos({ top: rect.bottom + 8, left: rect.left });
+                                                    setOpenSelectorId(streamer.id);
+                                                }
+                                            }
+                                        }}
+                                    >
+                                        <div className={`transition-colors hover:text-white ${isSelectorOpen ? 'text-white' : 'text-neutral-400'}`}>
+                                            <ChatIcon platform={currentChatPlatform} className="w-3 h-3" />
+                                        </div>
+                                        <svg 
+                                            width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" 
+                                            className={`transition-transform duration-200 ${isSelectorOpen ? 'rotate-180' : ''} opacity-50`}
+                                        >
+                                            <path d="M6 9l6 6 6-6"/>
+                                        </svg>
+                                    </div>
+                                    
+                                    {isActive && (
+                                        <>
+                                            <motion.div 
+                                                layoutId="activeTabBg"
+                                                className="absolute inset-0 rounded-t-lg opacity-20"
+                                                style={{ background: `linear-gradient(to top, ${streamer.color}, transparent)` }}
+                                            />
+                                            <motion.div 
+                                                layoutId="activeTabLine"
+                                                className="absolute bottom-0 left-0 right-0 h-[2px]"
+                                                style={{ 
+                                                    backgroundColor: streamer.color,
+                                                    boxShadow: `0 0 15px ${streamer.color}` 
+                                                }}
+                                            />
+                                        </>
+                                    )}
+                                </button>
+                            </div>
                         );
                     })}
                 </div>
 
-                {/* NEW CLOSE BUTTON (Fixed Right) - Updated Appearance */}
-                <div className="absolute right-0 top-0 bottom-0 w-12 flex items-center justify-center bg-gradient-to-l from-black via-black to-transparent z-20">
+                {/* NEW CLOSE BUTTON (Fixed Right) */}
+                <div className="absolute right-0 top-0 bottom-0 w-12 flex items-center justify-center bg-gradient-to-l from-[#090909] via-[#090909] to-transparent z-20">
                     <button 
                         onClick={onClose} 
-                        className="w-7 h-7 flex items-center justify-center rounded-md bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10 border border-white/5 transition-all duration-200 shadow-sm"
+                        className="w-7 h-7 flex items-center justify-center rounded-md bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10 border border-white/5 transition-all duration-200 shadow-sm backdrop-blur-md"
                         title="Fechar Chat"
                     >
-                         {/* Collapse Right Icon (Double Chevron or Arrow) */}
+                         {/* Collapse Right Icon */}
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <path d="m13 17 5-5-5-5"/>
                             <path d="m6 17 5-5-5-5"/>
@@ -216,12 +293,17 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose,
                         <iframe src={CUSTOM_MERGED_CHAT_URL} className="w-full h-full border-none" title="Unified Chat" loading="lazy" />
                     ) : (
                         STREAMERS.map((streamer) => {
-                        const platform = activeStreamers[streamer.id] || Platform.Twitch;
+                        // Use the chat platform (override or active)
+                        const platform = getChatPlatform(streamer.id);
                         const url = getChatUrl(streamer, platform);
+                        
                         return (
                             <div key={`mix-${streamer.id}`} className="flex-1 relative w-full min-h-0 border-b border-white/5 last:border-0 overflow-hidden group">
-                                <div className="absolute top-1 right-2 z-10 text-[9px] font-bold uppercase text-white/20 group-hover:text-white/50 pointer-events-none transition-colors">
-                                    {streamer.name}
+                                <div className="absolute top-1 right-2 z-10 flex items-center gap-1.5 pointer-events-none opacity-40 group-hover:opacity-100 transition-opacity">
+                                    <ChatIcon platform={platform} className="w-2.5 h-2.5 text-white" />
+                                    <span className="text-[9px] font-bold uppercase text-white shadow-black drop-shadow-md">
+                                        {streamer.name}
+                                    </span>
                                 </div>
                             {platform === Platform.YouTube ? (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0F0F0F]">
@@ -239,7 +321,8 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose,
 
                 {/* INDIVIDUAL VIEWS */}
                 {STREAMERS.map((streamer) => {
-                    const platform = activeStreamers[streamer.id] || Platform.Twitch;
+                    // Use the chat platform (override or active)
+                    const platform = getChatPlatform(streamer.id);
                     const url = getChatUrl(streamer, platform);
                     const isVisible = selectedStreamerId === streamer.id;
 
@@ -262,6 +345,57 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose,
                     );
                 })}
             </div>
+
+            {/* FIXED POSITION DROPDOWN OVERLAY - RENDERED OUTSIDE SCROLL CONTEXT */}
+            <AnimatePresence>
+                {activeDropdownStreamer && selectorPos && (
+                    <motion.div
+                        ref={dropdownRef}
+                        initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                        style={{ 
+                            position: 'fixed', 
+                            top: selectorPos.top, 
+                            left: selectorPos.left,
+                            zIndex: 9999 
+                        }}
+                        className="bg-black/90 backdrop-blur-xl border border-white/10 rounded-lg shadow-[0_10px_40px_rgba(0,0,0,0.8)] p-1 min-w-[140px] flex flex-col gap-1 overflow-hidden origin-top-left"
+                    >
+                        <div className="px-2 py-1 text-[8px] font-bold text-neutral-500 uppercase tracking-widest border-b border-white/5 mb-1">
+                            Fonte do Chat
+                        </div>
+                        {Object.keys(activeDropdownStreamer.channels).map((platformKey) => {
+                            const p = platformKey as Platform;
+                            // Skip platforms that don't have a configured channel
+                            if (!activeDropdownStreamer.channels[p]) return null;
+                            
+                            const isSelected = getChatPlatform(activeDropdownStreamer.id) === p;
+                            const pColor = getPlatformColor(p);
+
+                            return (
+                                <button
+                                    key={p}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setChatOverrides(prev => ({ ...prev, [activeDropdownStreamer.id]: p }));
+                                        setOpenSelectorId(null);
+                                    }}
+                                    className={`
+                                        flex items-center gap-2 px-2 py-2 rounded transition-colors text-left
+                                        ${isSelected ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white hover:bg-white/5'}
+                                    `}
+                                >
+                                    <ChatIcon platform={p} className="w-3 h-3 flex-shrink-0" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">{p}</span>
+                                    {isSelected && <div className="ml-auto w-1 h-1 rounded-full" style={{ backgroundColor: pColor, boxShadow: `0 0 5px ${pColor}` }} />}
+                                </button>
+                            )
+                        })}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             </motion.div>
         </>
       )}

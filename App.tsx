@@ -8,7 +8,7 @@ import MultiChat from './components/MultiChat';
 import ControlDock from './components/ControlDock';
 
 // Layout modes: 'columns' (3 vertical side-by-side) or 'grid' (1 top, 2 bottom)
-type LayoutMode = 'columns' | 'grid';
+type LayoutMode = 'columns' | 'grid' | 'pyramid';
 
 const App = () => {
   const defaultState: Record<string, Platform> = STREAMERS.reduce((acc, s) => ({
@@ -17,7 +17,7 @@ const App = () => {
   }), {});
 
   const [streamerStates, setStreamerStates] = useLocalStorage<Record<string, Platform>>('multi_viictorn_v7', defaultState);
-  const [layoutMode, setLayoutMode] = useLocalStorage<LayoutMode>('layout_mode_v2', 'columns');
+  const [layoutMode, setLayoutMode] = useLocalStorage<LayoutMode>('layout_mode_v3', 'columns');
   
   // Track visibility
   const [visibleStreamers, setVisibleStreamers] = useLocalStorage<string[]>('visible_streamers_v2', STREAMERS.map(s => s.id));
@@ -105,7 +105,13 @@ const App = () => {
       });
   };
 
-  const toggleLayout = () => setLayoutMode(prev => prev === 'columns' ? 'grid' : 'columns');
+  const toggleLayout = () => {
+    setLayoutMode(prev => {
+      if (prev === 'columns') return 'grid';
+      if (prev === 'grid') return 'pyramid';
+      return 'columns';
+    });
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedStreamerId(prev => prev === id ? null : id);
@@ -126,7 +132,7 @@ const App = () => {
           ...prev, 
           chatWidth: 420, 
           performanceMode: false, 
-          cinemaMode: false,
+          cinemaMode: false, 
           streamsVisible: true 
         }));
       setLayoutMode('columns');
@@ -300,7 +306,7 @@ const App = () => {
 
       // 3 Visible (Standard Grid or Columns)
       if (totalVisible >= 3) {
-          if (layoutMode === 'grid') { // REMOVED !isMobile CHECK
+          if (layoutMode === 'grid' || layoutMode === 'pyramid') {
             if (indexInVisible === 0) return 'col-span-2 row-span-1 border-b border-white/5'; 
             else if (indexInVisible === 1) return 'col-span-1 row-span-1 border-r border-white/5'; 
             else return 'col-span-1 row-span-1'; 
@@ -309,6 +315,16 @@ const App = () => {
           }
       }
       return 'flex-1';
+  };
+
+  const getContainerGridClass = () => {
+    if (layoutMode === 'grid' && !expandedStreamerId && visibleCount >= 3) {
+        return 'grid grid-cols-2 grid-rows-[60%_40%]'; // Focus Mode
+    }
+    if (layoutMode === 'pyramid' && !expandedStreamerId && visibleCount >= 3) {
+        return 'grid grid-cols-2 grid-rows-2'; // Equal Height Pyramid
+    }
+    return 'flex flex-col md:flex-row'; // Columns or others
   };
 
   return (
@@ -338,13 +354,7 @@ const App = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className={`
-                    w-full h-full
-                    ${layoutMode === 'grid' && !expandedStreamerId && visibleCount >= 3
-                        ? 'grid grid-cols-2 grid-rows-[60%_40%]' // REMOVED !isMobile CHECK
-                        : 'flex flex-col md:flex-row' 
-                    }
-                    `}
+                    className={`w-full h-full ${getContainerGridClass()}`}
                 >
                     {visibleCount === 0 ? (
                         <div className="flex flex-col items-center justify-center w-full h-full text-neutral-500">

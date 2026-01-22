@@ -6,7 +6,7 @@ import { STREAMERS } from '../constants';
 interface ControlDockProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
-  layoutMode: 'columns' | 'grid';
+  layoutMode: 'columns' | 'grid' | 'pyramid';
   onToggleLayout: () => void;
   isChatOpen: boolean;
   onToggleChat: () => void;
@@ -78,6 +78,26 @@ const ControlDock: React.FC<ControlDockProps> = ({
       };
   }, []);
 
+  const getLayoutIcon = () => {
+      if (layoutMode === 'columns') {
+          // Icon for "Switch to Grid (Focus)"
+          return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><line x1="15" x2="15" y1="3" y2="21"/></svg>;
+      } else if (layoutMode === 'grid') {
+          // Icon for "Switch to Pyramid"
+          return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 14h18"/><path d="M12 14v7"/></svg>;
+      } else {
+          // Icon for "Switch to Columns" (Currently Pyramid)
+          // Triangle-ish grid icon
+          return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h18"/><path d="M12 12v9"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>;
+      }
+  };
+
+  const getLayoutLabel = () => {
+      if (layoutMode === 'columns') return 'Ir para Foco (Grade)';
+      if (layoutMode === 'grid') return 'Ir para Pirâmide';
+      return 'Ir para Colunas';
+  };
+
   const dockItems = [
     {
       id: 'players',
@@ -88,10 +108,8 @@ const ControlDock: React.FC<ControlDockProps> = ({
     },
     {
       id: 'layout',
-      label: layoutMode === 'grid' ? 'Voltar para Colunas' : 'Modo Grade',
-      icon: layoutMode === 'grid' 
-        ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="9" y1="3" y2="21"/><line x1="15" x2="15" y1="3" y2="21"/></svg>
-        : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 14h18"/><path d="M12 14v7"/></svg>,
+      label: getLayoutLabel(),
+      icon: getLayoutIcon(),
       action: onToggleLayout,
     },
     {
