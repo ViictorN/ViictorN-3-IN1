@@ -151,8 +151,10 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
     // Only trigger if clicking the HUD div itself, not its children (buttons)
     if (e.target === e.currentTarget) {
         e.stopPropagation();
-        setIsUserActive(false);
-        setShowSelector(false);
+        // We actually want clicking the backdrop to WAKE UP the UI, not hide it immediately.
+        // The standard video player behavior: Click -> Toggle UI or Wake UI.
+        // Given the user request "always appear when clicking", we keep it active.
+        setIsUserActive(true);
     }
   };
 
@@ -201,17 +203,23 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
 
   if (isOtherExpanded) return null;
 
-  // Logic to show controls: Must be hovered AND user must be active (moved mouse recently)
-  // EXCEPT if showSelector is open (keep it open while interacting)
-  const showControls = (isHovered && isUserActive) || showSelector;
+  // CHANGED: Removed 'isHovered' dependency. Now strictly active or selecting.
+  // This satisfies "Always appear when clicking" (clicking sets isUserActive).
+  const showControls = isUserActive || showSelector;
 
   return (
     <div 
       ref={containerRef}
       className="relative w-full h-full bg-black overflow-hidden group"
       onMouseEnter={() => { setIsHovered(true); setIsUserActive(true); }}
-      onMouseLeave={() => { setIsHovered(false); setShowSelector(false); setHoveredAction(null); }}
-      onClick={() => setIsUserActive(true)} // Immediate feedback for container clicks (wakes up)
+      onMouseLeave={() => { 
+          setIsHovered(false); 
+          setShowSelector(false); 
+          setHoveredAction(null);
+          // Force hide on leave to keep desktop experience clean
+          setIsUserActive(false);
+      }}
+      onClick={() => setIsUserActive(true)} // Clicking ANYWHERE ensures it wakes up
     >
       {/* 1. IFRAME LAYER */}
       <div 
@@ -301,7 +309,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
         initial={false}
         animate={{ opacity: ((isCinemaMode && !showControls) || isDragging || !showControls) ? 0 : 1 }}
         transition={{ duration: 0.5 }}
-        onClick={handleBackdropClick} // CLICK TO HIDE LOGIC
+        onClick={handleBackdropClick} // CLICK TO SHOW/WAKE
         className={`
             absolute inset-0 z-20 
             ${showControls ? 'pointer-events-auto' : 'pointer-events-none'} 
