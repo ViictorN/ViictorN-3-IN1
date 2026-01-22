@@ -162,7 +162,7 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose,
             )}
 
             {/* HEADER AREA - LIQUID GLASS EFFECT */}
-            <div className="flex flex-none h-14 relative z-20">
+            <div className="flex flex-none h-14 relative z-20 overflow-hidden">
                 {/* Liquid Glass Background */}
                 <div className="absolute inset-0 bg-black/40 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.2)]"></div>
 
@@ -266,17 +266,16 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose,
                     })}
                 </div>
 
-                {/* NEW CLOSE BUTTON (Fixed Right) */}
-                <div className="absolute right-0 top-0 bottom-0 w-12 flex items-center justify-center bg-gradient-to-l from-[#090909] via-[#090909] to-transparent z-20">
+                {/* NEW CLOSE BUTTON (Fixed Right - Solid Background to cover scrolling tabs) */}
+                <div className="absolute right-0 top-0 bottom-0 w-10 z-30 flex items-center justify-center bg-[#090909] border-l border-white/10 shadow-[-5px_0_15px_rgba(0,0,0,0.5)]">
                     <button 
                         onClick={onClose} 
-                        className="w-7 h-7 flex items-center justify-center rounded-md bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10 border border-white/5 transition-all duration-200 shadow-sm backdrop-blur-md"
+                        className="w-7 h-7 flex items-center justify-center rounded-md bg-white/5 text-neutral-400 hover:text-lime-400 hover:bg-white/10 border border-white/5 transition-all duration-200 shadow-sm"
                         title="Fechar Chat"
                     >
-                         {/* Collapse Right Icon */}
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="m13 17 5-5-5-5"/>
-                            <path d="m6 17 5-5-5-5"/>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M13 5l7 7-7 7"/>
+                            <path d="M6 5l7 7-7 7"/>
                         </svg>
                     </button>
                 </div>

@@ -268,9 +268,30 @@ const App = () => {
                 )}
             </div>
             
-            {/* Version Text */}
-            <div className="absolute bottom-4 left-0 w-full text-center">
-                <span className="text-[9px] text-neutral-700 font-mono">v1.8.0 // ViictorN</span>
+            {/* Version Text & Credits - REDESIGNED */}
+            <div className="absolute bottom-8 left-0 w-full flex justify-center z-20 pointer-events-auto">
+                <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1, duration: 1 }}
+                    className="flex items-center gap-3 px-6 py-2.5 rounded-full bg-black/20 backdrop-blur-md border border-white/5 hover:bg-black/40 hover:border-white/10 transition-all duration-500 group/credit shadow-[0_4px_20px_rgba(0,0,0,0.5)]"
+                >
+                    <span className="text-[10px] text-neutral-600 font-mono tracking-widest">v1.8.0</span>
+                    <span className="text-neutral-700 text-[10px] opacity-50">|</span>
+                    <a 
+                        href="https://www.instagram.com/victorg.n7/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="relative flex items-center gap-1.5 group/link"
+                        title="Instagram do Desenvolvedor"
+                    >
+                        <span className="text-sm font-bold tracking-widest bg-gradient-to-r from-emerald-500 via-lime-500 to-white bg-clip-text text-transparent group-hover/link:brightness-125 transition-all duration-300 cursor-pointer drop-shadow-sm font-sans">
+                            ViictorN
+                        </span>
+                        {/* Underline Effect */}
+                        <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-gradient-to-r from-emerald-500 to-lime-500 transition-all duration-300 group-hover/link:w-full opacity-70"></span>
+                    </a>
+                </motion.div>
             </div>
         </div>
     );
