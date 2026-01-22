@@ -60,7 +60,7 @@ export const STREAMERS: StreamerConfig[] = [
     color: '#FF0000', // YouTube red dominant
     channels: {
       [Platform.Twitch]: 'loud_coringa',
-      [Platform.YouTube]: 'ZB6cQsbnONM', // IRL DIA 1
+      [Platform.YouTube]: 'RBaJUuSuHUE', // IRL DIA 2
       [Platform.Kick]: 'coringa',
     },
   },

@@ -35,6 +35,9 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   
+  // Lazy Loading State
+  const [isInView, setIsInView] = useState(false);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const activityTimerRef = useRef<number | null>(null);
 
@@ -44,12 +47,36 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
+  // INTERSECTION OBSERVER FOR LAZY LOADING
   useEffect(() => {
-    setIsLoading(true);
-    // Reduced timeout to 1.5s for a snappier feel, relying on iframe onLoad for true completion
-    const timer = setTimeout(() => setIsLoading(false), 1500);
-    return () => clearTimeout(timer);
-  }, [currentPlatform, effectiveRefreshKey]);
+    const observer = new IntersectionObserver(
+        (entries) => {
+            if (entries[0].isIntersecting) {
+                setIsInView(true);
+                observer.disconnect(); // Once loaded, stay loaded
+            }
+        },
+        { rootMargin: '100px' } // Start loading 100px before element enters viewport
+    );
+
+    if (containerRef.current) {
+        observer.observe(containerRef.current);
+    }
+
+    return () => {
+        observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    // Only set loading state if we are actually going to render (in view)
+    if (isInView) {
+        setIsLoading(true);
+        // Reduced timeout to 1.5s for a snappier feel, relying on iframe onLoad for true completion
+        const timer = setTimeout(() => setIsLoading(false), 1500);
+        return () => clearTimeout(timer);
+    }
+  }, [currentPlatform, effectiveRefreshKey, isInView]);
 
   // Handle local activity (mouse movement inside the slot AND clicks)
   useEffect(() => {
@@ -192,59 +219,66 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
         style={{ pointerEvents: isDragging ? 'none' : 'auto' }} // DISABLE POINTER EVENTS ON DRAG
       >
          {hasValidChannel && embedUrl ? (
-            <>
-                <iframe
-                    key={`${currentPlatform}-${effectiveRefreshKey}`} 
-                    src={embedUrl}
-                    title={`${streamer.name} - ${currentPlatform}`}
-                    className="w-full h-full border-none bg-black"
-                    onLoad={() => setIsLoading(false)}
-                    allowFullScreen
-                    sandbox="allow-modals allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation allow-forms allow-storage-access-by-user-activation"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; speaker; microphone"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                />
-                <AnimatePresence>
-                  {isLoading && (
-                      <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="absolute inset-0 flex items-center justify-center bg-black/90 backdrop-blur-md z-10 pointer-events-none"
-                      >
-                          <div className="flex flex-col items-center gap-6">
-                              {/* Modern Spinner */}
-                              <div className="relative w-16 h-16">
-                                  {/* Outer Ring */}
-                                  <motion.span 
-                                    className="absolute inset-0 rounded-full border border-white/10"
-                                    animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.6, 0.3] }}
-                                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                                  />
-                                  {/* Spinning Segment */}
-                                  <motion.span 
-                                    className="absolute inset-0 rounded-full border-2 border-t-white/80 border-r-transparent border-b-transparent border-l-transparent"
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
-                                  />
-                                  {/* Inner Core */}
-                                  <div className="absolute inset-0 m-auto w-2 h-2 bg-white rounded-full shadow-[0_0_10px_white]" />
-                              </div>
-                              
-                              <motion.span 
-                                initial={{ opacity: 0.5 }}
-                                animate={{ opacity: [0.4, 1, 0.4] }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                                className="text-[10px] text-white/80 font-black tracking-[0.4em] uppercase"
-                              >
-                                  Conectando
-                              </motion.span>
-                          </div>
-                      </motion.div>
-                  )}
-                </AnimatePresence>
-            </>
+            isInView ? (
+                <>
+                    <iframe
+                        key={`${currentPlatform}-${effectiveRefreshKey}`} 
+                        src={embedUrl}
+                        title={`${streamer.name} - ${currentPlatform}`}
+                        className="w-full h-full border-none bg-black"
+                        onLoad={() => setIsLoading(false)}
+                        allowFullScreen
+                        sandbox="allow-modals allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation allow-forms allow-storage-access-by-user-activation"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; speaker; microphone"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                    />
+                    <AnimatePresence>
+                    {isLoading && (
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.5 }}
+                            className="absolute inset-0 flex items-center justify-center bg-black/90 backdrop-blur-md z-10 pointer-events-none"
+                        >
+                            <div className="flex flex-col items-center gap-6">
+                                {/* Modern Spinner */}
+                                <div className="relative w-16 h-16">
+                                    {/* Outer Ring */}
+                                    <motion.span 
+                                        className="absolute inset-0 rounded-full border border-white/10"
+                                        animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.6, 0.3] }}
+                                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                    />
+                                    {/* Spinning Segment */}
+                                    <motion.span 
+                                        className="absolute inset-0 rounded-full border-2 border-t-white/80 border-r-transparent border-b-transparent border-l-transparent"
+                                        animate={{ rotate: 360 }}
+                                        transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                                    />
+                                    {/* Inner Core */}
+                                    <div className="absolute inset-0 m-auto w-2 h-2 bg-white rounded-full shadow-[0_0_10px_white]" />
+                                </div>
+                                
+                                <motion.span 
+                                    initial={{ opacity: 0.5 }}
+                                    animate={{ opacity: [0.4, 1, 0.4] }}
+                                    transition={{ duration: 1.5, repeat: Infinity }}
+                                    className="text-[10px] text-white/80 font-black tracking-[0.4em] uppercase"
+                                >
+                                    Conectando
+                                </motion.span>
+                            </div>
+                        </motion.div>
+                    )}
+                    </AnimatePresence>
+                </>
+            ) : (
+                // Inactive state (Lazy Load Placeholder)
+                <div className="w-full h-full bg-black flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full border border-white/10 animate-pulse opacity-20"></div>
+                </div>
+            )
          ) : (
            <div className="flex flex-col items-center justify-center w-full h-full text-white/20 select-none p-4 text-center bg-neutral-950">
                 <span className="text-3xl md:text-5xl font-black uppercase tracking-widest opacity-30">{streamer.name}</span>
@@ -256,7 +290,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
       </div>
 
       {/* 2. STATUS LIGHT */}
-      {(!isLoading && hasValidChannel && showControls && !isDragging) && (
+      {(!isLoading && hasValidChannel && showControls && !isDragging && isInView) && (
          <div className="absolute top-4 right-4 z-10 pointer-events-none transition-opacity duration-500">
              <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(255,0,0,0.8)] animate-pulse" />
          </div>
