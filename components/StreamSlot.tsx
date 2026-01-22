@@ -146,18 +146,6 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
       if (url) window.open(url, '_blank', 'width=1280,height=720');
   };
 
-  // Explicitly hide UI when clicking the backdrop of the HUD
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    // Only trigger if clicking the HUD div itself, not its children (buttons)
-    if (e.target === e.currentTarget) {
-        e.stopPropagation();
-        // We actually want clicking the backdrop to WAKE UP the UI, not hide it immediately.
-        // The standard video player behavior: Click -> Toggle UI or Wake UI.
-        // Given the user request "always appear when clicking", we keep it active.
-        setIsUserActive(true);
-    }
-  };
-
   const embedUrl = useMemo(() => {
     if (!hasValidChannel || !channelId) return '';
     const parents = new Set<string>();
@@ -203,8 +191,8 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
 
   if (isOtherExpanded) return null;
 
-  // CHANGED: Removed 'isHovered' dependency. Now strictly active or selecting.
-  // This satisfies "Always appear when clicking" (clicking sets isUserActive).
+  // showControls is based on user activity.
+  // Clicking the iframe triggers 'blur', which calls handleActivity(), setting isUserActive=true.
   const showControls = isUserActive || showSelector;
 
   return (
@@ -219,7 +207,7 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
           // Force hide on leave to keep desktop experience clean
           setIsUserActive(false);
       }}
-      onClick={() => setIsUserActive(true)} // Clicking ANYWHERE ensures it wakes up
+      onClick={() => setIsUserActive(true)} // Clicking borders/margins ensures it wakes up
     >
       {/* 1. IFRAME LAYER */}
       <div 
@@ -309,10 +297,9 @@ const StreamSlot: React.FC<StreamSlotProps> = ({
         initial={false}
         animate={{ opacity: ((isCinemaMode && !showControls) || isDragging || !showControls) ? 0 : 1 }}
         transition={{ duration: 0.5 }}
-        onClick={handleBackdropClick} // CLICK TO SHOW/WAKE
         className={`
             absolute inset-0 z-20 
-            ${showControls ? 'pointer-events-auto' : 'pointer-events-none'} 
+            pointer-events-none
         `}
         style={{
             background: (isCinemaMode && !showControls) ? 'transparent' : 'radial-gradient(circle at center, transparent 50%, rgba(0,0,0,0.4) 100%)'
