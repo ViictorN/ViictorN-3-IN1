@@ -162,12 +162,12 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose,
             )}
 
             {/* HEADER AREA - LIQUID GLASS EFFECT */}
-            <div className="flex flex-none h-14 relative z-20 overflow-hidden">
+            <div className="flex flex-none h-14 relative z-20 overflow-hidden items-center">
                 {/* Liquid Glass Background */}
                 <div className="absolute inset-0 bg-black/40 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.2)]"></div>
 
-                {/* Scrollable Tabs Container */}
-                <div className="relative flex-1 flex items-end px-2 gap-1 overflow-x-auto no-scrollbar pr-12">
+                {/* Scrollable Tabs Container - Added pr-14 to avoid overlap with close button */}
+                <div className="relative flex-1 flex items-end px-2 gap-1 overflow-x-auto no-scrollbar pr-14 h-full pb-0">
                     {/* MIX TAB */}
                     <button
                         onClick={() => setSelectedStreamerId('all')}
@@ -266,14 +266,17 @@ const MultiChat: React.FC<MultiChatProps> = ({ activeStreamers, isOpen, onClose,
                     })}
                 </div>
 
-                {/* NEW CLOSE BUTTON (Fixed Right - Solid Background to cover scrolling tabs) */}
-                <div className="absolute right-0 top-0 bottom-0 w-10 z-30 flex items-center justify-center bg-[#090909] border-l border-white/10 shadow-[-5px_0_15px_rgba(0,0,0,0.5)]">
+                {/* NEW CLOSE BUTTON (Floating Glass Circle) */}
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 z-30">
                     <button 
                         onClick={onClose} 
-                        className="w-7 h-7 flex items-center justify-center rounded-md bg-white/5 text-neutral-400 hover:text-lime-400 hover:bg-white/10 border border-white/5 transition-all duration-200 shadow-sm"
+                        className="group w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-white/10 border border-white/10 text-neutral-400 hover:text-white transition-all duration-200 backdrop-blur-md shadow-lg"
                         title="Fechar Chat"
                     >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg 
+                            width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                            className="group-hover:scale-110 transition-transform duration-200 group-hover:text-lime-400"
+                        >
                             <path d="M13 5l7 7-7 7"/>
                             <path d="M6 5l7 7-7 7"/>
                         </svg>

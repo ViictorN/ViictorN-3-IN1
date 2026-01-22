@@ -282,14 +282,15 @@ const App = () => {
                         href="https://www.instagram.com/victorg.n7/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="relative flex items-center gap-1.5 group/link"
+                        className="relative flex items-center gap-2 group/link"
                         title="Instagram do Desenvolvedor"
                     >
-                        <span className="text-sm font-bold tracking-widest bg-gradient-to-r from-emerald-500 via-lime-500 to-white bg-clip-text text-transparent group-hover/link:brightness-125 transition-all duration-300 cursor-pointer drop-shadow-sm font-sans">
+                         {/* Neon Lime Green Gradient */}
+                        <span className="text-base md:text-lg font-bold bg-gradient-to-r from-[#ccff00] to-[#53FC18] bg-clip-text text-transparent group-hover/link:brightness-125 transition-all duration-300 cursor-pointer drop-shadow-[0_0_8px_rgba(163,230,53,0.5)] font-sans tracking-tight">
                             ViictorN
                         </span>
-                        {/* Underline Effect */}
-                        <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-gradient-to-r from-emerald-500 to-lime-500 transition-all duration-300 group-hover/link:w-full opacity-70"></span>
+                        {/* Underline Effect - Lime */}
+                        <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-gradient-to-r from-[#ccff00] to-[#53FC18] transition-all duration-300 group-hover/link:w-full opacity-100 shadow-[0_0_8px_#ccff00]"></span>
                     </a>
                 </motion.div>
             </div>
