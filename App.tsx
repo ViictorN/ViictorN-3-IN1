@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Analytics } from '@vercel/analytics/react';
 import { STREAMERS } from './constants';
 import { Platform, AppSettings } from './types';
 import useLocalStorage from './hooks/useLocalStorage';
@@ -484,6 +485,7 @@ const App = () => {
         />
 
       </main>
+      <Analytics />
     </div>
   );
 };
